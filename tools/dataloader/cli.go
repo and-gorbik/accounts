@@ -160,7 +160,7 @@ func writeAccountsAndPersons(conn *sqlx.DB, accs []Account, countries, cities ma
 		return err
 	}
 
-	queryPersonTotal := `INSERT INTO person(id, email, sex, birth, name, surname, phone, country_id, city_id) VALUES %s;`
+	queryPersonTotal := `INSERT INTO person(account_id, email, sex, birth, name, surname, phone, country_id, city_id) VALUES %s;`
 	queriesPerson := make([]string, 0, len(persons))
 	for _, p := range persons {
 		queriesPerson = append(

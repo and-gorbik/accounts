@@ -1,7 +1,7 @@
 package models
 
 type Person struct {
-	ID        int32   `db:"id"`
+	ID        int32   `db:"account_id"`
 	Email     string  `db:"email"`
 	Sex       string  `db:"sex"`
 	Birth     int64   `db:"birth"`
