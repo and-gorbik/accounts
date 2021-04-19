@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"strings"
 
+	_ "github.com/jackc/pgx/v4/stdlib"
 	"github.com/jmoiron/sqlx"
 	"github.com/urfave/cli/v2"
 
@@ -22,19 +24,19 @@ var (
 	errEmptyArg  = errors.New("command line args doesn't exist")
 )
 
-func Run() *cli.App {
+func Run() error {
 	app := cli.NewApp()
 	app.Flags = []cli.Flag{
 		&cli.StringFlag{
-			Name:     flagConn,
-			Usage:    "connection string",
-			Required: true,
+			Name:  flagConn,
+			Usage: "connection string",
+			// Required: true,
 		},
 	}
 
 	app.Action = run
 
-	return app
+	return app.Run(os.Args)
 }
 
 func run(ctx *cli.Context) error {
