@@ -1,5 +1,9 @@
 package dataloader
 
+type Accounts struct {
+	Accounts []Account `json:"accounts"`
+}
+
 type Account struct {
 	ID      int32   `json:"id"`
 	Email   string  `json:"email"`

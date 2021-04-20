@@ -5,10 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"strings"
+	"time"
 
-	_ "github.com/jackc/pgx/v4/stdlib"
+	_ "github.com/jackc/pgx/stdlib"
 	"github.com/jmoiron/sqlx"
 	"github.com/urfave/cli/v2"
 
@@ -17,6 +19,9 @@ import (
 
 const (
 	flagConn = "conn"
+
+	timestampLayout = "2006-01-02 15:04:05"
+	nullTime        = "0000-00-00 00:00:00"
 )
 
 var (
@@ -28,9 +33,9 @@ func Run() error {
 	app := cli.NewApp()
 	app.Flags = []cli.Flag{
 		&cli.StringFlag{
-			Name:  flagConn,
-			Usage: "connection string",
-			// Required: true,
+			Name:     flagConn,
+			Usage:    "connection string",
+			Required: true,
 		},
 	}
 
@@ -40,7 +45,12 @@ func Run() error {
 }
 
 func run(ctx *cli.Context) error {
-	conn, err := sqlx.Connect("pgx", ctx.String(flagConn))
+	connStr := ctx.String(flagConn)
+	if connStr == "" {
+		return errEmptyConn
+	}
+
+	conn, err := sqlx.Connect("pgx", connStr)
 	if err != nil {
 		return err
 	}
@@ -69,12 +79,12 @@ func readFile(path string) ([]Account, error) {
 		return nil, err
 	}
 
-	account := []Account{}
-	if err = json.Unmarshal(data, &account); err != nil {
+	var accounts Accounts
+	if err = json.Unmarshal(data, &accounts); err != nil {
 		return nil, err
 	}
 
-	return account, nil
+	return accounts.Accounts, nil
 }
 
 func writeToDB(conn *sqlx.DB, accounts []Account) error {
@@ -91,6 +101,9 @@ func writeToDB(conn *sqlx.DB, accounts []Account) error {
 }
 
 func writeCountriesAndCities(conn *sqlx.DB, accs []Account) (countries, cities map[string]int32, err error) {
+	countries = make(map[string]int32)
+	cities = make(map[string]int32)
+
 	lenCountries := int32(0)
 	lenCities := int32(0)
 
@@ -149,29 +162,29 @@ func writeAccountsAndPersons(conn *sqlx.DB, accs []Account, countries, cities ma
 		persons = append(persons, newPerson(&acc, countryID, cityID))
 	}
 
-	queryAccountTotal := `INSERT INTO account(id, joined, status, premium_start, premium_end) VALUES %s;`
+	queryAccountTotal := `INSERT INTO account(id, joined, status, prem_start, prem_end) VALUES %s;`
 	queriesAccount := make([]string, 0, len(accounts))
 	for _, a := range accounts {
-		queriesAccount = append(
-			queriesAccount,
-			fmt.Sprintf(`(%d, %d, '%s', %d, %d)`, a.ID, a.Joined, a.Status, a.PremiumStart, a.PremiumEnd),
-		)
+		query := fmt.Sprintf(`(%d, %s, '%s', %s, %s)`, a.ID, nullableTimestamp(a.Joined), a.Status, nullableTimestamp(a.PremiumStart), nullableTimestamp(a.PremiumEnd))
+		queriesAccount = append(queriesAccount, query)
 	}
 
-	if _, err := conn.Exec(fmt.Sprintf(queryAccountTotal, strings.Join(queriesAccount, ", "))); err != nil {
+	query := strings.Join(queriesAccount, ", ")
+	if _, err := conn.Exec(fmt.Sprintf(queryAccountTotal, query)); err != nil {
+		log.Println(query)
 		return err
 	}
 
 	queryPersonTotal := `INSERT INTO person(account_id, email, sex, birth, name, surname, phone, country_id, city_id) VALUES %s;`
 	queriesPerson := make([]string, 0, len(persons))
 	for _, p := range persons {
-		queriesPerson = append(
-			queriesPerson,
-			fmt.Sprintf(`(%d, '%s', '%s', %d, '%s', '%s', '%s', %d, %d)`, p.ID, p.Email, p.Sex, p.Birth, *p.Name, *p.Surname, *p.Phone, *p.CountryID, *p.CityID),
-		)
+		query := fmt.Sprintf(`(%d, '%s', '%s', %s, '%s', '%s', '%s', %d, %d)`, p.ID, p.Email, p.Sex, nullableTimestamp(p.Birth), *p.Name, *p.Surname, *p.Phone, *p.CountryID, *p.CityID)
+		queriesPerson = append(queriesPerson, query)
 	}
 
-	if _, err := conn.Exec(fmt.Sprintf(queryPersonTotal, strings.Join(queriesPerson, ", "))); err != nil {
+	query = strings.Join(queriesPerson, ", ")
+	if _, err := conn.Exec(fmt.Sprintf(queryPersonTotal, query)); err != nil {
+		log.Println(query)
 		return err
 	}
 
@@ -190,7 +203,7 @@ func writeLikesAndInterests(conn *sqlx.DB, accs []Account) error {
 	queryLikeTotal := `INSERT INTO like(liker_id, likee_id, ts) VALUES %s;`
 	queriesLike := make([]string, 0, len(likes))
 	for _, like := range likes {
-		queriesLike = append(queriesLike, fmt.Sprintf(`(%d, %d, %d)`, like.LikerID, like.LikeeID, like.Timestamp))
+		queriesLike = append(queriesLike, fmt.Sprintf(`(%d, %d, %s)`, like.LikerID, like.LikeeID, nullableTimestamp(like.Timestamp)))
 	}
 
 	if _, err := conn.Exec(fmt.Sprintf(queryLikeTotal, strings.Join(queriesLike, ", "))); err != nil {
@@ -213,13 +226,16 @@ func writeLikesAndInterests(conn *sqlx.DB, accs []Account) error {
 func newAccount(acc *Account) models.Account {
 	a := models.Account{
 		ID:     acc.ID,
-		Joined: acc.Joined,
+		Joined: int64PtrToTimestamp(&acc.Joined),
 		Status: acc.Status,
 	}
 
 	if acc.Premium != nil {
-		a.PremiumStart = &acc.Premium.Start
-		a.PremiumEnd = &acc.Premium.End
+		a.PremiumStart = int64PtrToTimestamp(&acc.Premium.Start)
+		a.PremiumEnd = int64PtrToTimestamp(&acc.Premium.End)
+	} else {
+		a.PremiumStart = nullTime
+		a.PremiumEnd = nullTime
 	}
 
 	return a
@@ -230,7 +246,7 @@ func newPerson(acc *Account, countryID, cityID *int32) models.Person {
 		ID:        acc.ID,
 		Email:     acc.Email,
 		Sex:       acc.Sex,
-		Birth:     acc.Birth,
+		Birth:     int64PtrToTimestamp(&acc.Birth),
 		Name:      acc.Name,
 		Surname:   acc.Surname,
 		Phone:     acc.Phone,
@@ -246,7 +262,7 @@ func newLikes(acc *Account) []models.Like {
 		likes = append(likes, models.Like{
 			LikerID:   acc.ID,
 			LikeeID:   like.UserID,
-			Timestamp: like.Timestamp,
+			Timestamp: int64PtrToTimestamp(&like.Timestamp),
 		})
 	}
 
@@ -268,4 +284,20 @@ func newInterests(acc *Account) []models.Interest {
 
 func int32Ptr(val int32) *int32 {
 	return &val
+}
+
+func int64PtrToTimestamp(val *int64) string {
+	if val == nil {
+		return nullTime
+	}
+
+	return time.Unix(*val, 0).Format(timestampLayout)
+}
+
+func nullableTimestamp(timestamp string) string {
+	if timestamp == nullTime {
+		return "null"
+	}
+
+	return fmt.Sprintf(`'%s'::timestamp`, timestamp)
 }
