@@ -1,10 +1,3 @@
-DROP TABLE city;
-DROP TABLE country;
-DROP TABLE interest;
-DROP TABLE likes;
-DROP TABLE person;
-DROP TABLE account;
-
 CREATE TABLE IF NOT EXISTS city (
     id      int not null,
     name    varchar(50) not null

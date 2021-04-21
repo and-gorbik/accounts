@@ -58,7 +58,7 @@ func run(ctx *cli.Context) error {
 
 	defer conn.Close()
 
-	accounts, err := readFile(ctx.Args().First())
+	accounts, err := readFile(ctx.Args().Slice())
 	if err != nil {
 		return err
 	}
@@ -70,22 +70,27 @@ func run(ctx *cli.Context) error {
 	return nil
 }
 
-func readFile(path string) ([]Account, error) {
-	if path == "" {
+func readFile(paths []string) ([]Account, error) {
+	if len(paths) == 0 {
 		return nil, errEmptyArg
 	}
 
-	data, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, err
+	result := make([]Account, 0)
+	for _, path := range paths {
+		data, err := ioutil.ReadFile(path)
+		if err != nil {
+			return nil, err
+		}
+
+		var accounts Accounts
+		if err = json.Unmarshal(data, &accounts); err != nil {
+			return nil, err
+		}
+
+		result = append(result, accounts.Accounts...)
 	}
 
-	var accounts Accounts
-	if err = json.Unmarshal(data, &accounts); err != nil {
-		return nil, err
-	}
-
-	return accounts.Accounts, nil
+	return result, nil
 }
 
 func writeToDB(conn *sqlx.DB, accounts []Account) error {
