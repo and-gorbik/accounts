@@ -1,7 +1,7 @@
 DROP TABLE city;
 DROP TABLE country;
 DROP TABLE interest;
-DROP TABLE "like";
+DROP TABLE likes;
 DROP TABLE person;
 DROP TABLE account;
 
@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS interest (
     name        varchar(100) not null
 );
 
-CREATE TABLE IF NOT EXISTS "like" (
+CREATE TABLE IF NOT EXISTS likes (
     liker_id    int not null,
     likee_id    int not null,
     ts          timestamp not null

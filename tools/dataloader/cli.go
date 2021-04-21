@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -135,7 +136,7 @@ func writeCountriesAndCities(conn *sqlx.DB, accs []Account) (countries, cities m
 	}
 
 	queriesCountry := make([]string, 0, lenCountries)
-	for name, id := range cities {
+	for name, id := range countries {
 		queriesCountry = append(queriesCountry, fmt.Sprintf(`(%d, '%s')`, id, name))
 	}
 
@@ -178,8 +179,19 @@ func writeAccountsAndPersons(conn *sqlx.DB, accs []Account, countries, cities ma
 	queryPersonTotal := `INSERT INTO person(account_id, email, sex, birth, name, surname, phone, country_id, city_id) VALUES %s;`
 	queriesPerson := make([]string, 0, len(persons))
 	for _, p := range persons {
-		query := fmt.Sprintf(`(%d, '%s', '%s', %s, '%s', '%s', '%s', %d, %d)`, p.ID, p.Email, p.Sex, nullableTimestamp(p.Birth), *p.Name, *p.Surname, *p.Phone, *p.CountryID, *p.CityID)
-		queriesPerson = append(queriesPerson, query)
+		queriesPerson = append(
+			queriesPerson,
+			fmt.Sprintf(
+				`(%d, '%s', '%s', %s, %s, %s, %s, %s, %s)`,
+				p.ID, p.Email, p.Sex,
+				nullableTimestamp(p.Birth),
+				nullableString(p.Name),
+				nullableString(p.Surname),
+				nullableString(p.Phone),
+				nullableInt32(p.CountryID),
+				nullableInt32(p.CityID),
+			),
+		)
 	}
 
 	query = strings.Join(queriesPerson, ", ")
@@ -200,7 +212,7 @@ func writeLikesAndInterests(conn *sqlx.DB, accs []Account) error {
 		interests = append(interests, newInterests(&acc)...)
 	}
 
-	queryLikeTotal := `INSERT INTO like(liker_id, likee_id, ts) VALUES %s;`
+	queryLikeTotal := `INSERT INTO likes(liker_id, likee_id, ts) VALUES %s;`
 	queriesLike := make([]string, 0, len(likes))
 	for _, like := range likes {
 		queriesLike = append(queriesLike, fmt.Sprintf(`(%d, %d, %s)`, like.LikerID, like.LikeeID, nullableTimestamp(like.Timestamp)))
@@ -300,4 +312,20 @@ func nullableTimestamp(timestamp string) string {
 	}
 
 	return fmt.Sprintf(`'%s'::timestamp`, timestamp)
+}
+
+func nullableString(str *string) string {
+	if str == nil {
+		return "null"
+	}
+
+	return fmt.Sprintf(`'%s'`, *str)
+}
+
+func nullableInt32(val *int32) string {
+	if val == nil {
+		return "null"
+	}
+
+	return strconv.Itoa(int(*val))
 }
