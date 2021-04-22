@@ -1,5 +1,11 @@
 package main
 
-func main() {
+import (
+	"log"
 
+	"accounts/app"
+)
+
+func main() {
+	log.Fatal(app.Serve())
 }
