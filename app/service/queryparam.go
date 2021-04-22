@@ -3,8 +3,13 @@ package service
 type action = func()
 
 type QueryParam struct {
-	Left   string
-	Right  string
-	Op     string
-	Action action
+	Field    string
+	StrValue string
+}
+
+type QueryParamWithOp struct {
+	Field    string
+	StrValue string
+	Op       string
+	Action   action
 }

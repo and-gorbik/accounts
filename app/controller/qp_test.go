@@ -4,13 +4,13 @@ import (
 	"testing"
 )
 
-func Test_parseQueryParam(t *testing.T) {
-	qp, err := parseQueryParam("sex_eq")
+func Test_parseQueryParamWithOp(t *testing.T) {
+	qp, err := parseQueryParamWithOp("sex_eq", "m")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if qp.Left != qpSex || qp.Op != eq {
+	if qp.Field != qpSex || qp.Op != eq || qp.StrValue != "m" {
 		t.Fatal(errInvalidParam)
 	}
 }

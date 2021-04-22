@@ -2,6 +2,7 @@ package controller
 
 import (
 	"errors"
+	"net/url"
 	"strings"
 
 	"accounts/app/service"
@@ -35,6 +36,10 @@ const (
 	qpInterests = "interests"
 	qpLikes     = "likes"
 	qpPremium   = "premium"
+	qpJoined    = "joined"
+
+	qpLimit   = "limit"
+	qpQueryID = "query_id"
 )
 
 var (
@@ -42,7 +47,7 @@ var (
 )
 
 var (
-	qpRules = map[string]map[string]struct{}{
+	qpWithOpRules = map[string]map[string]struct{}{
 		qpSex:       {eq: yes},
 		qpEmail:     {domain: yes, gt: yes, lt: yes},
 		qpStatus:    {eq: yes, neq: yes},
@@ -56,25 +61,139 @@ var (
 		qpLikes:     {contains: yes},
 		qpPremium:   {now: yes, null: yes},
 	}
+
+	qpRules = map[string]struct{}{
+		qpEmail:     yes,
+		qpSex:       yes,
+		qpBirth:     yes,
+		qpFirstname: yes,
+		qpSurname:   yes,
+		qpPhone:     yes,
+		qpCountry:   yes,
+		qpCity:      yes,
+		qpJoined:    yes,
+		qpStatus:    yes,
+		qpInterests: yes,
+		qpPremium:   yes,
+		qpLikes:     yes,
+	}
 )
 
 var (
-	errInvalidParam = errors.New("invalid query param")
+	errInvalidParam         = errors.New("invalid query param")
+	errInvalidValue         = errors.New("invalid value")
+	errEmptyValue           = errors.New("empty value")
+	errMissingRequiredParam = errors.New("missing required param")
 )
 
-func parseQueryParam(param string, values ...string) (qp service.QueryParam, err error) {
+func ParseQueryParamsWithOp(qps url.Values) ([]service.QueryParamWithOp, error) {
+	limit, err := parseLimit(qps)
+	if err != nil {
+		return nil, err
+	}
+
+	if _, ok := qps[qpQueryID]; !ok {
+		return nil, errMissingRequiredParam
+	}
+
+	params := []service.QueryParamWithOp{
+		{Field: limit.Field, Op: eq, StrValue: limit.StrValue},
+	}
+
+	for param, values := range qps {
+		if param == qpLimit || param == qpQueryID {
+			continue
+		}
+
+		qp, err := parseQueryParamWithOp(param, strings.Join(values, ","))
+		if err != nil {
+			return nil, err
+		}
+
+		params = append(params, qp)
+	}
+
+	return params, nil
+}
+
+func ParseQueryParams(qps url.Values) ([]service.QueryParam, error) {
+	limit, err := parseLimit(qps)
+	if err != nil {
+		return nil, err
+	}
+
+	if _, ok := qps[qpQueryID]; !ok {
+		return nil, errMissingRequiredParam
+	}
+
+	params := []service.QueryParam{limit}
+
+	for param, values := range qps {
+		if param == qpLimit || param == qpQueryID {
+			continue
+		}
+
+		qp, err := parseQueryParam(param, strings.Join(values, ","))
+		if err != nil {
+			return nil, err
+		}
+
+		params = append(params, qp)
+	}
+
+	return params, nil
+}
+
+func parseQueryParam(param string, value string) (qp service.QueryParam, err error) {
+	if _, ok := qpRules[param]; !ok {
+		err = errInvalidParam
+		return
+	}
+
+	if value == "" {
+		err = errEmptyValue
+		return
+	}
+
+	qp.Field = param
+	qp.StrValue = value
+	return
+}
+
+func parseQueryParamWithOp(param string, value string) (qp service.QueryParamWithOp, err error) {
 	tokens := strings.Split(param, "_")
 	if len(tokens) != 2 {
 		err = errInvalidParam
 		return
 	}
 
-	if _, ok := qpRules[tokens[0]][tokens[1]]; !ok {
+	if _, ok := qpWithOpRules[tokens[0]][tokens[1]]; !ok {
 		err = errInvalidParam
 		return
 	}
 
-	qp.Left = tokens[0]
+	if value == "" {
+		err = errEmptyValue
+		return
+	}
+
+	qp.Field = tokens[0]
 	qp.Op = tokens[1]
+	qp.StrValue = value
 	return
+}
+
+func parseLimit(qps url.Values) (service.QueryParam, error) {
+	if _, ok := qps[qpLimit]; !ok {
+		return service.QueryParam{}, errMissingRequiredParam
+	}
+
+	if len(qps[qpLimit]) != 1 {
+		return service.QueryParam{}, errInvalidValue
+	}
+
+	return service.QueryParam{
+		Field:    qpLimit,
+		StrValue: qps[qpLimit][0],
+	}, nil
 }
