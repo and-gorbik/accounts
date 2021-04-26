@@ -15,7 +15,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/urfave/cli/v2"
 
-	"accounts/models"
+	"accounts/domain"
 )
 
 const (
@@ -150,8 +150,8 @@ func writeCountriesAndCities(conn *sqlx.DB, accs []Account) (countries, cities m
 }
 
 func writeAccountsAndPersons(conn *sqlx.DB, accs []Account, countries, cities map[string]int32) error {
-	accounts := make([]models.Account, 0, len(accs))
-	persons := make([]models.Person, 0, len(accs))
+	accounts := make([]domain.Account, 0, len(accs))
+	persons := make([]domain.Person, 0, len(accs))
 
 	for _, acc := range accs {
 		accounts = append(accounts, newAccount(&acc))
@@ -209,8 +209,8 @@ func writeAccountsAndPersons(conn *sqlx.DB, accs []Account, countries, cities ma
 }
 
 func writeLikesAndInterests(conn *sqlx.DB, accs []Account) error {
-	likes := make([]models.Like, 0)
-	interests := make([]models.Interest, 0)
+	likes := make([]domain.Like, 0)
+	interests := make([]domain.Interest, 0)
 
 	for _, acc := range accs {
 		likes = append(likes, newLikes(&acc)...)
@@ -240,8 +240,8 @@ func writeLikesAndInterests(conn *sqlx.DB, accs []Account) error {
 	return nil
 }
 
-func newAccount(acc *Account) models.Account {
-	a := models.Account{
+func newAccount(acc *Account) domain.Account {
+	a := domain.Account{
 		ID:     acc.ID,
 		Joined: int64PtrToTimestamp(&acc.Joined),
 		Status: acc.Status,
@@ -258,8 +258,8 @@ func newAccount(acc *Account) models.Account {
 	return a
 }
 
-func newPerson(acc *Account, countryID, cityID *int32) models.Person {
-	return models.Person{
+func newPerson(acc *Account, countryID, cityID *int32) domain.Person {
+	return domain.Person{
 		ID:        acc.ID,
 		Email:     acc.Email,
 		Sex:       acc.Sex,
@@ -272,11 +272,11 @@ func newPerson(acc *Account, countryID, cityID *int32) models.Person {
 	}
 }
 
-func newLikes(acc *Account) []models.Like {
-	likes := make([]models.Like, 0, len(acc.Likes))
+func newLikes(acc *Account) []domain.Like {
+	likes := make([]domain.Like, 0, len(acc.Likes))
 
 	for _, like := range acc.Likes {
-		likes = append(likes, models.Like{
+		likes = append(likes, domain.Like{
 			LikerID:   acc.ID,
 			LikeeID:   like.UserID,
 			Timestamp: int64PtrToTimestamp(&like.Timestamp),
@@ -286,11 +286,11 @@ func newLikes(acc *Account) []models.Like {
 	return likes
 }
 
-func newInterests(acc *Account) []models.Interest {
-	interests := make([]models.Interest, 0, len(acc.Interests))
+func newInterests(acc *Account) []domain.Interest {
+	interests := make([]domain.Interest, 0, len(acc.Interests))
 
 	for _, interest := range acc.Interests {
-		interests = append(interests, models.Interest{
+		interests = append(interests, domain.Interest{
 			AccountID: acc.ID,
 			Name:      interest,
 		})

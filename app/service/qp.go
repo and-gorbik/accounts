@@ -1,26 +1,24 @@
-package controller
+package service
 
 import (
 	"errors"
 	"net/url"
 	"strings"
-
-	"accounts/app/service"
 )
 
 const (
-	eq       = "eq"
-	lt       = "lt"
-	gt       = "gt"
-	neq      = "neq"
-	any      = "any"
-	domain   = "domain"
-	null     = "null"
-	starts   = "starts"
-	code     = "code"
-	year     = "year"
-	contains = "contains"
-	now      = "now"
+	opEq       = "eq"
+	opLt       = "lt"
+	opGt       = "gt"
+	opNeq      = "neq"
+	opAny      = "any"
+	opDomain   = "domain"
+	opNull     = "null"
+	opStarts   = "starts"
+	opCode     = "code"
+	opYear     = "year"
+	opContains = "contains"
+	opNow      = "now"
 )
 
 const (
@@ -48,18 +46,18 @@ var (
 
 var (
 	qpWithOpRules = map[string]map[string]struct{}{
-		qpSex:       {eq: yes},
-		qpEmail:     {domain: yes, gt: yes, lt: yes},
-		qpStatus:    {eq: yes, neq: yes},
-		qpFirstname: {eq: yes, any: yes, null: yes},
-		qpSurname:   {eq: yes, starts: yes, null: yes},
-		qpPhone:     {code: yes, null: yes},
-		qpCountry:   {eq: yes, null: yes},
-		qpCity:      {eq: yes, any: yes, null: yes},
-		qpBirth:     {lt: yes, gt: yes, year: yes},
-		qpInterests: {contains: yes, any: yes},
-		qpLikes:     {contains: yes},
-		qpPremium:   {now: yes, null: yes},
+		qpSex:       {opEq: yes},
+		qpEmail:     {opDomain: yes, opGt: yes, opLt: yes},
+		qpStatus:    {opEq: yes, opNeq: yes},
+		qpFirstname: {opEq: yes, opAny: yes, opNull: yes},
+		qpSurname:   {opEq: yes, opStarts: yes, opNull: yes},
+		qpPhone:     {opCode: yes, opNull: yes},
+		qpCountry:   {opEq: yes, opNull: yes},
+		qpCity:      {opEq: yes, opAny: yes, opNull: yes},
+		qpBirth:     {opLt: yes, opGt: yes, opYear: yes},
+		qpInterests: {opContains: yes, opAny: yes},
+		qpLikes:     {opContains: yes},
+		qpPremium:   {opNow: yes, opNull: yes},
 	}
 
 	qpRules = map[string]struct{}{
@@ -86,7 +84,7 @@ var (
 	errMissingRequiredParam = errors.New("missing required param")
 )
 
-func ParseQueryParamsWithOp(qps url.Values) ([]service.QueryParamWithOp, error) {
+func ParseQueryParamsWithOp(qps url.Values) (map[string]QueryParamWithOp, error) {
 	limit, err := parseLimit(qps)
 	if err != nil {
 		return nil, err
@@ -96,8 +94,11 @@ func ParseQueryParamsWithOp(qps url.Values) ([]service.QueryParamWithOp, error) 
 		return nil, errMissingRequiredParam
 	}
 
-	params := []service.QueryParamWithOp{
-		{Field: limit.Field, Op: eq, StrValue: limit.StrValue},
+	params := make(map[string]QueryParamWithOp, len(qps)-1)
+	params[limit.Field] = QueryParamWithOp{
+		Field:    limit.Field,
+		Op:       opEq,
+		StrValue: limit.StrValue,
 	}
 
 	for param, values := range qps {
@@ -110,13 +111,13 @@ func ParseQueryParamsWithOp(qps url.Values) ([]service.QueryParamWithOp, error) 
 			return nil, err
 		}
 
-		params = append(params, qp)
+		params[qp.Field] = qp
 	}
 
 	return params, nil
 }
 
-func ParseQueryParams(qps url.Values) ([]service.QueryParam, error) {
+func ParseQueryParams(qps url.Values) (map[string]QueryParam, error) {
 	limit, err := parseLimit(qps)
 	if err != nil {
 		return nil, err
@@ -126,7 +127,8 @@ func ParseQueryParams(qps url.Values) ([]service.QueryParam, error) {
 		return nil, errMissingRequiredParam
 	}
 
-	params := []service.QueryParam{limit}
+	params := make(map[string]QueryParam, len(qps)-1)
+	params[limit.Field] = limit
 
 	for param, values := range qps {
 		if param == qpLimit || param == qpQueryID {
@@ -138,13 +140,13 @@ func ParseQueryParams(qps url.Values) ([]service.QueryParam, error) {
 			return nil, err
 		}
 
-		params = append(params, qp)
+		params[qp.Field] = qp
 	}
 
 	return params, nil
 }
 
-func parseQueryParam(param string, value string) (qp service.QueryParam, err error) {
+func parseQueryParam(param string, value string) (qp QueryParam, err error) {
 	if _, ok := qpRules[param]; !ok {
 		err = errInvalidParam
 		return
@@ -160,7 +162,7 @@ func parseQueryParam(param string, value string) (qp service.QueryParam, err err
 	return
 }
 
-func parseQueryParamWithOp(param string, value string) (qp service.QueryParamWithOp, err error) {
+func parseQueryParamWithOp(param string, value string) (qp QueryParamWithOp, err error) {
 	tokens := strings.Split(param, "_")
 	if len(tokens) != 2 {
 		err = errInvalidParam
@@ -183,16 +185,16 @@ func parseQueryParamWithOp(param string, value string) (qp service.QueryParamWit
 	return
 }
 
-func parseLimit(qps url.Values) (service.QueryParam, error) {
+func parseLimit(qps url.Values) (QueryParam, error) {
 	if _, ok := qps[qpLimit]; !ok {
-		return service.QueryParam{}, errMissingRequiredParam
+		return QueryParam{}, errMissingRequiredParam
 	}
 
 	if len(qps[qpLimit]) != 1 {
-		return service.QueryParam{}, errInvalidValue
+		return QueryParam{}, errInvalidValue
 	}
 
-	return service.QueryParam{
+	return QueryParam{
 		Field:    qpLimit,
 		StrValue: qps[qpLimit][0],
 	}, nil

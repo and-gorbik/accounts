@@ -1,4 +1,4 @@
-package models
+package domain
 
 type AccountOut struct {
 	ID      int32   `json:"id"`
