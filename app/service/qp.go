@@ -4,6 +4,9 @@ import (
 	"errors"
 	"net/url"
 	"strings"
+
+	"accounts/domain"
+	"accounts/infrastructure"
 )
 
 const (
@@ -75,6 +78,23 @@ var (
 		qpPremium:   yes,
 		qpLikes:     yes,
 	}
+
+	qpTypes = map[string]int{
+		qpSex:       infrastructure.TypeStr,
+		qpEmail:     infrastructure.TypeStr,
+		qpStatus:    infrastructure.TypeStr,
+		qpFirstname: infrastructure.TypeStr,
+		qpSurname:   infrastructure.TypeStr,
+		qpPhone:     infrastructure.TypeStr,
+		qpCountry:   infrastructure.TypeStr,
+		qpCity:      infrastructure.TypeStr,
+		qpBirth:     infrastructure.TypeTimestamp,
+		qpInterests: infrastructure.TypeArray,
+		qpLikes:     infrastructure.TypeArray,
+		qpPremium:   infrastructure.TypeTimestamp,
+		qpJoined:    infrastructure.TypeTimestamp,
+		qpLimit:     infrastructure.TypeInt,
+	}
 )
 
 var (
@@ -111,6 +131,10 @@ func ParseQueryParamsWithOp(qps url.Values) (map[string]QueryParamWithOp, error)
 			return nil, err
 		}
 
+		if err := validateValues(qp.Field, values); err != nil {
+			return nil, err
+		}
+
 		params[qp.Field] = qp
 	}
 
@@ -140,6 +164,10 @@ func ParseQueryParams(qps url.Values) (map[string]QueryParam, error) {
 			return nil, err
 		}
 
+		if err := validateValues(qp.Field, values); err != nil {
+			return nil, err
+		}
+
 		params[qp.Field] = qp
 	}
 
@@ -159,6 +187,7 @@ func parseQueryParam(param string, value string) (qp QueryParam, err error) {
 
 	qp.Field = param
 	qp.StrValue = value
+	qp.Type = qpTypes[param]
 	return
 }
 
@@ -182,6 +211,8 @@ func parseQueryParamWithOp(param string, value string) (qp QueryParamWithOp, err
 	qp.Field = tokens[0]
 	qp.Op = tokens[1]
 	qp.StrValue = value
+	qp.Type = qpTypes[param]
+
 	return
 }
 
@@ -198,4 +229,79 @@ func parseLimit(qps url.Values) (QueryParam, error) {
 		Field:    qpLimit,
 		StrValue: qps[qpLimit][0],
 	}, nil
+}
+
+func validateValues(param string, values []string) error {
+	if len(values) < 1 {
+		return nil
+	}
+
+	switch param {
+	case qpSex:
+		return domain.FieldSex(values[0]).Validate()
+	case qpEmail:
+		return domain.FieldEmail(values[0]).Validate()
+	case qpStatus:
+		return domain.FieldStatus(values[0]).Validate()
+	case qpFirstname:
+		return domain.FieldFirstname(values[0]).Validate()
+	case qpSurname:
+		return domain.FieldSurname(values[0]).Validate()
+	case qpPhone:
+		return domain.FieldPhone(values[0]).Validate()
+	case qpCountry:
+		return domain.FieldCountry(values[0]).Validate()
+	case qpCity:
+		return domain.FieldCity(values[0]).Validate()
+	case qpBirth:
+		ts, err := infrastructure.ParseTimestamp(values[0])
+		if err != nil {
+			return err
+		}
+
+		return domain.FieldBirth(ts).Validate()
+	case qpPremium:
+		ts, err := infrastructure.ParseTimestamp(values[0])
+		if err != nil {
+			return err
+		}
+
+		return domain.FieldPremium(ts).Validate()
+	case qpJoined:
+		ts, err := infrastructure.ParseTimestamp(values[0])
+		if err != nil {
+			return err
+		}
+
+		return domain.FieldPremium(ts).Validate()
+	case qpInterests:
+		for _, value := range values {
+			if err := domain.FieldInterest(value).Validate(); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	case qpLikes:
+		for _, value := range values {
+			intVal, err := infrastructure.ParseInt(value)
+			if err != nil {
+				return err
+			}
+
+			if err := domain.FieldID(intVal).Validate(); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	case qpLimit:
+		_, err := infrastructure.ParseInt(values[0])
+		if err != nil {
+			return err
+		}
+	default:
+	}
+
+	return nil
 }

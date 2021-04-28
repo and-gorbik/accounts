@@ -1,42 +1,42 @@
 package domain
 
 type Person struct {
-	ID        int32   `db:"account_id"`
-	Email     string  `db:"email"`
-	Sex       string  `db:"sex"`
-	Birth     string  `db:"birth"`
-	Name      *string `db:"name"`
-	Surname   *string `db:"surname"`
-	Phone     *string `db:"phone"`
-	CountryID *int32  `db:"country_id"`
-	CityID    *int32  `db:"city_id"`
+	ID        FieldID         `db:"account_id"`
+	Email     FieldEmail      `db:"email"`
+	Sex       FieldSex        `db:"sex"`
+	Birth     FieldBirth      `db:"birth"`
+	Name      *FieldFirstname `db:"name"`
+	Surname   *FieldSurname   `db:"surname"`
+	Phone     *FieldPhone     `db:"phone"`
+	CountryID *FieldID        `db:"country_id"`
+	CityID    *FieldID        `db:"city_id"`
 }
 
 type Account struct {
-	ID           int32  `db:"id"`
-	Joined       string `db:"joined"`
-	Status       string `db:"status"`
-	PremiumStart string `db:"prem_start"`
-	PremiumEnd   string `db:"prem_end"`
+	ID           FieldID      `db:"id"`
+	Joined       FieldJoined  `db:"joined"`
+	Status       FieldStatus  `db:"status"`
+	PremiumStart FieldPremium `db:"prem_start"`
+	PremiumEnd   FieldPremium `db:"prem_end"`
 }
 
 type Like struct {
-	LikerID   int32  `db:"liker_id"`
-	LikeeID   int32  `db:"likee_id"`
-	Timestamp string `db:"ts"`
+	LikerID   FieldID `db:"liker_id"`
+	LikeeID   FieldID `db:"likee_id"`
+	Timestamp int64   `db:"ts"`
 }
 
 type Interest struct {
-	AccountID int32  `db:"account_id"`
-	Name      string `db:"name"`
+	AccountID FieldID       `db:"account_id"`
+	Name      FieldInterest `db:"name"`
 }
 
 type City struct {
-	ID   int32  `db:"id"`
-	Name string `db:"name"`
+	ID   FieldID   `db:"id"`
+	Name FieldCity `db:"name"`
 }
 
 type Country struct {
-	ID   int32  `db:"id"`
-	Name string `db:"name"`
+	ID   FieldID      `db:"id"`
+	Name FieldCountry `db:"name"`
 }
