@@ -9,6 +9,13 @@ import (
 	"accounts/infrastructure"
 )
 
+type QueryParam struct {
+	Type     int
+	Field    string
+	StrValue string
+	Op       *string
+}
+
 const (
 	opEq       = "eq"
 	opLt       = "lt"
@@ -89,8 +96,8 @@ var (
 		qpCountry:   infrastructure.TypeStr,
 		qpCity:      infrastructure.TypeStr,
 		qpBirth:     infrastructure.TypeTimestamp,
-		qpInterests: infrastructure.TypeArray,
-		qpLikes:     infrastructure.TypeArray,
+		qpInterests: infrastructure.TypeStrArray,
+		qpLikes:     infrastructure.TypeIntArray,
 		qpPremium:   infrastructure.TypeTimestamp,
 		qpJoined:    infrastructure.TypeTimestamp,
 		qpLimit:     infrastructure.TypeInt,
@@ -104,44 +111,7 @@ var (
 	errMissingRequiredParam = errors.New("missing required param")
 )
 
-func ParseQueryParamsWithOp(qps url.Values) (map[string]QueryParamWithOp, error) {
-	limit, err := parseLimit(qps)
-	if err != nil {
-		return nil, err
-	}
-
-	if _, ok := qps[qpQueryID]; !ok {
-		return nil, errMissingRequiredParam
-	}
-
-	params := make(map[string]QueryParamWithOp, len(qps)-1)
-	params[limit.Field] = QueryParamWithOp{
-		Field:    limit.Field,
-		Op:       opEq,
-		StrValue: limit.StrValue,
-	}
-
-	for param, values := range qps {
-		if param == qpLimit || param == qpQueryID {
-			continue
-		}
-
-		qp, err := parseQueryParamWithOp(param, strings.Join(values, ","))
-		if err != nil {
-			return nil, err
-		}
-
-		if err := validateValues(qp.Field, values); err != nil {
-			return nil, err
-		}
-
-		params[qp.Field] = qp
-	}
-
-	return params, nil
-}
-
-func ParseQueryParams(qps url.Values) (map[string]QueryParam, error) {
+func ParseQueryParams(qps url.Values, withOp bool) (map[string]QueryParam, error) {
 	limit, err := parseLimit(qps)
 	if err != nil {
 		return nil, err
@@ -159,7 +129,7 @@ func ParseQueryParams(qps url.Values) (map[string]QueryParam, error) {
 			continue
 		}
 
-		qp, err := parseQueryParam(param, strings.Join(values, ","))
+		qp, err := parseQueryParam(param, strings.Join(values, ","), withOp)
 		if err != nil {
 			return nil, err
 		}
@@ -174,10 +144,23 @@ func ParseQueryParams(qps url.Values) (map[string]QueryParam, error) {
 	return params, nil
 }
 
-func parseQueryParam(param string, value string) (qp QueryParam, err error) {
-	if _, ok := qpRules[param]; !ok {
-		err = errInvalidParam
-		return
+func parseQueryParam(param string, value string, withOp bool) (qp QueryParam, err error) {
+	if withOp {
+		tokens := strings.Split(param, "_")
+		if len(tokens) != 2 {
+			err = errInvalidParam
+			return
+		}
+
+		if _, ok := qpWithOpRules[tokens[0]][tokens[1]]; !ok {
+			err = errInvalidParam
+			return
+		}
+
+		qp.Field = tokens[0]
+		qp.Op = &tokens[1]
+	} else {
+		qp.Field = param
 	}
 
 	if value == "" {
@@ -185,31 +168,6 @@ func parseQueryParam(param string, value string) (qp QueryParam, err error) {
 		return
 	}
 
-	qp.Field = param
-	qp.StrValue = value
-	qp.Type = qpTypes[param]
-	return
-}
-
-func parseQueryParamWithOp(param string, value string) (qp QueryParamWithOp, err error) {
-	tokens := strings.Split(param, "_")
-	if len(tokens) != 2 {
-		err = errInvalidParam
-		return
-	}
-
-	if _, ok := qpWithOpRules[tokens[0]][tokens[1]]; !ok {
-		err = errInvalidParam
-		return
-	}
-
-	if value == "" {
-		err = errEmptyValue
-		return
-	}
-
-	qp.Field = tokens[0]
-	qp.Op = tokens[1]
 	qp.StrValue = value
 	qp.Type = qpTypes[param]
 

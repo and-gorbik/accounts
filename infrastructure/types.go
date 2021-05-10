@@ -4,5 +4,6 @@ const (
 	TypeInt = iota
 	TypeStr
 	TypeTimestamp
-	TypeArray
+	TypeStrArray
+	TypeIntArray
 )
