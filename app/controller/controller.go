@@ -3,13 +3,22 @@ package controller
 import (
 	"log"
 	"net/http"
+
+	"accounts/infrastructure"
 )
 
 type Controller struct {
+	service accountService
 }
 
 func (c *Controller) FilterAccounts(w http.ResponseWriter, r *http.Request) {
-	log.Println("filter accounts")
+	body, err := c.service.FilterAccounts(r.Context(), r.URL.Query())
+	if err != nil {
+		infrastructure.WriteErrorResponse(w, err, http.StatusBadRequest)
+		return
+	}
+
+	infrastructure.WriteSuccessResponse(w, body, http.StatusOK)
 }
 
 func (c *Controller) GroupAccounts(w http.ResponseWriter, r *http.Request) {
@@ -25,13 +34,51 @@ func (c *Controller) GetSuggestions(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *Controller) CreateAccount(w http.ResponseWriter, r *http.Request) {
-	log.Println("create account")
+	body, err := infrastructure.ReadRequestBody(r)
+	if err != nil {
+		infrastructure.WriteErrorResponse(w, err, http.StatusBadRequest)
+		return
+	}
+
+	if err = c.service.AddAccount(r.Context(), body); err != nil {
+		infrastructure.WriteErrorResponse(w, err, http.StatusBadRequest)
+		return
+	}
+
+	infrastructure.WriteSuccessResponse(w, []byte("{}"), http.StatusCreated)
 }
 
 func (c *Controller) UpdateAccount(w http.ResponseWriter, r *http.Request) {
-	log.Println("update account")
+	id := infrastructure.ReadURLParam(r, "id")
+	if id == "" {
+		infrastructure.WriteErrorResponse(w, nil, http.StatusBadRequest)
+	}
+
+	body, err := infrastructure.ReadRequestBody(r)
+	if err != nil {
+		infrastructure.WriteErrorResponse(w, err, http.StatusBadRequest)
+		return
+	}
+
+	if err = c.service.UpdateAccount(r.Context(), body); err != nil {
+		infrastructure.WriteErrorResponse(w, err, http.StatusBadRequest)
+		return
+	}
+
+	infrastructure.WriteSuccessResponse(w, []byte("{}"), http.StatusAccepted)
 }
 
 func (c *Controller) AddLikes(w http.ResponseWriter, r *http.Request) {
-	log.Println("add likes")
+	body, err := infrastructure.ReadRequestBody(r)
+	if err != nil {
+		infrastructure.WriteErrorResponse(w, err, http.StatusBadRequest)
+		return
+	}
+
+	if err = c.service.AddLikes(r.Context(), body); err != nil {
+		infrastructure.WriteErrorResponse(w, err, http.StatusBadRequest)
+		return
+	}
+
+	infrastructure.WriteSuccessResponse(w, []byte("{}"), http.StatusAccepted)
 }
