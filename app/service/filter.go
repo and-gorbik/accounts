@@ -31,13 +31,13 @@ func buildFilter(param QueryParam) string {
 	case opEq, opLt, opGt, opNeq:
 		return buildBinaryOp(param)
 	case opDomain:
-		return fmt.Sprintf("%s LIKE '%%@%s'", param.Field, param.StrValue)
+		return buildOpLike(param.Field, "%", param.StrValue)
 	case opNull:
 		return buildOpNull(param)
 	case opStarts:
-		return fmt.Sprintf("%s LIKE '%s%%'", param.Field, param.StrValue)
+		return buildOpLike(param.Field, param.StrValue, "%")
 	case opCode:
-		return fmt.Sprintf("%s LIKE '%%(%s)%%'", param.Field, param.StrValue)
+		return buildOpLike(param.Field, "%(", param.StrValue, ")%")
 	case opAny:
 		return buildOpAny(param)
 	case opContains:
@@ -72,10 +72,10 @@ func buildBinaryOp(param QueryParam) string {
 
 func buildOpNull(param QueryParam) string {
 	if param.StrValue == "1" {
-		return fmt.Sprintf("%s IS NULL", param.Field)
+		return param.Field + " IS NULL"
 	}
 
-	return fmt.Sprintf("%s IS NOT NULL", param.Field)
+	return param.Field + " IS NOT NULL"
 }
 
 func buildOpContains(p QueryParam) string {
@@ -88,9 +88,6 @@ func buildOpAny(p QueryParam) string {
 
 func buildOpOverArray(p QueryParam, sqlOp string) string {
 	values := strings.Split(p.StrValue, ",")
-	if len(values) == 1 {
-		return p.StrValue
-	}
 
 	var itemType int
 	if p.Type == infrastructure.TypeStrArray {
@@ -100,11 +97,14 @@ func buildOpOverArray(p QueryParam, sqlOp string) string {
 	}
 
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("%s = %s (", p.Field, sqlOp))
+	b.WriteString(p.Field)
+	b.WriteString(" = ")
+	b.WriteString(sqlOp)
+	b.WriteString(" (")
 	b.WriteString(buildValue(values[0], itemType))
 	for i := 1; i < len(values); i++ {
 		b.WriteString(", ")
-		b.WriteString(buildValue(values[0], itemType))
+		b.WriteString(buildValue(values[i], itemType))
 	}
 
 	b.WriteByte(')')
@@ -125,5 +125,24 @@ func buildValue(value string, typ int) string {
 }
 
 func escapeString(s string) string {
-	return fmt.Sprintf("%s%s%s", randScope, s, randScope)
+	var b strings.Builder
+	b.WriteString(randScope)
+	b.WriteString(s)
+	b.WriteString(randScope)
+	return b.String()
+}
+
+func buildOpLike(field string, values ...string) string {
+	var b strings.Builder
+	b.WriteString(field)
+	b.WriteString(" LIKE ")
+	b.WriteString(randScope)
+
+	for _, val := range values {
+		b.WriteString(val)
+	}
+
+	b.WriteString(randScope)
+
+	return b.String()
 }
