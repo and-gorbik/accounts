@@ -36,7 +36,7 @@ func (s *AccountService) FilterAccounts(ctx context.Context, params url.Values) 
 }
 
 func (s *AccountService) AddAccount(ctx context.Context, body []byte) error {
-	var account domain.Account
+	var account domain.AccountInput
 	if err := jsoniter.Unmarshal(body, &account); err != nil {
 		return BusinessError{err}
 	}
@@ -45,7 +45,7 @@ func (s *AccountService) AddAccount(ctx context.Context, body []byte) error {
 }
 
 func (s *AccountService) UpdateAccount(ctx context.Context, body []byte) error {
-	var account domain.Account
+	var account domain.AccountUpdate
 	if err := jsoniter.Unmarshal(body, &account); err != nil {
 		return BusinessError{err}
 	}
@@ -54,7 +54,7 @@ func (s *AccountService) UpdateAccount(ctx context.Context, body []byte) error {
 }
 
 func (s *AccountService) AddLikes(ctx context.Context, body []byte) error {
-	var likes []domain.Like
+	var likes []domain.LikeInput
 	if err := jsoniter.Unmarshal(body, &likes); err != nil {
 		return BusinessError{err}
 	}
