@@ -45,12 +45,12 @@ func ValidateString(s string, maxlen int, like *string, pattern *regexp.Regexp) 
 	return nil
 }
 
-func ValidateTimestamp(timestamp, min, max int64) error {
-	if timestamp < min {
+func ValidateTimestamp(timestamp int64, min, max *int64) error {
+	if min != nil && timestamp < *min {
 		return errLessThanMin
 	}
 
-	if timestamp > max {
+	if max != nil && timestamp > *max {
 		return errGreaterThanMax
 	}
 
@@ -63,4 +63,14 @@ func ParseTimestamp(s string) (int64, error) {
 
 func ParseInt(s string) (int, error) {
 	return strconv.Atoi(s)
+}
+
+func AnyIsNil(args ...interface{}) bool {
+	for _, arg := range args {
+		if arg == nil {
+			return true
+		}
+	}
+
+	return false
 }
