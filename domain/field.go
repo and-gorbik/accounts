@@ -85,17 +85,23 @@ func (s FieldCity) Validate() error {
 type FieldBirth int64
 
 func (t FieldBirth) Validate() error {
-	return infrastructure.ValidateTimestamp(int64(t), minBirth, maxBirth)
+	return infrastructure.ValidateTimestamp(int64(t), &minBirth, &maxBirth)
 }
 
 type FieldJoined int64
 
 func (t FieldJoined) Validate() error {
-	return infrastructure.ValidateTimestamp(int64(t), minJoined, maxJoined)
+	return infrastructure.ValidateTimestamp(int64(t), &minJoined, &maxJoined)
 }
 
 type FieldPremium int64
 
 func (t FieldPremium) Validate() error {
-	return infrastructure.ValidateTimestamp(int64(t), minPremiumStart, minPremiumEnd)
+	return infrastructure.ValidateTimestamp(int64(t), &minPremiumStart, &minPremiumEnd)
+}
+
+type FieldTimestamp int64
+
+func (t FieldTimestamp) Validate() error {
+	return infrastructure.ValidateTimestamp(int64(t), nil, nil)
 }
