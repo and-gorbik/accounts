@@ -4,8 +4,13 @@ import (
 	"time"
 )
 
-func TimestampToDatetime(ts int64) time.Time {
-	return time.Unix(ts, 0)
+func TimestampToDatetime(ts *int64) *time.Time {
+	if ts == nil {
+		return nil
+	}
+
+	res := time.Unix(*ts, 0)
+	return &res
 }
 
 func PtrString(s string) *string {

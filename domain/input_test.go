@@ -21,26 +21,27 @@ type testcaseAccount struct {
 }
 
 var (
-	now                  = time.Date(2018, 1, 1, 0, 0, 0, 0, time.Local).Unix()
+	testNow              = time.Date(2018, 1, 1, 0, 0, 0, 0, time.Local)
+	testBirth            = time.Date(1994, 1, 1, 0, 0, 0, 0, time.Local)
 	goodAccountTestcases = []testcaseAccount{
 		{
 			Input: AccountInput{
 				ID:     (*FieldID)(util.PtrInt32(1)),
 				Email:  (*FieldEmail)(util.PtrString("test1@test.ru")),
 				Sex:    (*FieldSex)(util.PtrString("m")),
-				Birth:  (*FieldBirth)(util.PtrInt64(maxBirth)),
-				Joined: (*FieldJoined)(util.PtrInt64(1485724260)),
+				Birth:  (*FieldBirth)(util.PtrInt64(testBirth.Unix())),
+				Joined: (*FieldJoined)(util.PtrInt64(testNow.Unix())),
 				Status: (*FieldStatus)(util.PtrString("свободны")),
 			},
 			Person: PersonTable{
 				ID:    1,
 				Email: "test1@test.ru",
 				Sex:   "m",
-				Birth: maxBirth,
+				Birth: testBirth,
 			},
 			Account: AccountTable{
 				ID:     1,
-				Joined: 1485724260,
+				Joined: testNow,
 				Status: "свободны",
 			},
 		},
@@ -49,8 +50,8 @@ var (
 				ID:      (*FieldID)(util.PtrInt32(1)),
 				Email:   (*FieldEmail)(util.PtrString("test1@test.ru")),
 				Sex:     (*FieldSex)(util.PtrString("m")),
-				Birth:   (*FieldBirth)(util.PtrInt64(maxBirth)),
-				Joined:  (*FieldJoined)(util.PtrInt64(1485724260)),
+				Birth:   (*FieldBirth)(util.PtrInt64(testBirth.Unix())),
+				Joined:  (*FieldJoined)(util.PtrInt64(testNow.Unix())),
 				Status:  (*FieldStatus)(util.PtrString("заняты")),
 				Name:    (*FieldFirstname)(util.PtrString("Андрей")),
 				Surname: (*FieldSurname)(util.PtrString("Горбик")),
@@ -63,17 +64,17 @@ var (
 					(*FieldInterest)(util.PtrString("фортепиано")),
 				},
 				Premium: &PremiumInput{
-					Start: (*FieldPremium)(util.PtrInt64(now)),
-					End:   (*FieldPremium)(util.PtrInt64(now)),
+					Start: (*FieldPremium)(util.PtrInt64(testNow.Unix())),
+					End:   (*FieldPremium)(util.PtrInt64(testNow.Unix())),
 				},
 				Likes: []*AccountLikeInput{
 					{
 						UserID:    (*FieldID)(util.PtrInt32(1)),
-						Timestamp: (*FieldTimestamp)(util.PtrInt64(now)),
+						Timestamp: (*FieldTimestamp)(util.PtrInt64(testNow.Unix())),
 					},
 					{
 						UserID:    (*FieldID)(util.PtrInt32(2)),
-						Timestamp: (*FieldTimestamp)(util.PtrInt64(now)),
+						Timestamp: (*FieldTimestamp)(util.PtrInt64(testNow.Unix())),
 					},
 				},
 			},
@@ -81,28 +82,28 @@ var (
 				ID:      1,
 				Email:   "test1@test.ru",
 				Sex:     "m",
-				Birth:   maxBirth,
+				Birth:   testBirth,
 				Name:    util.PtrString("Андрей"),
 				Surname: util.PtrString("Горбик"),
 				Phone:   util.PtrString("8(999)7654321"),
 			},
 			Account: AccountTable{
 				ID:           1,
-				Joined:       1485724260,
+				Joined:       testNow,
 				Status:       "заняты",
-				PremiumStart: util.PtrInt64(now),
-				PremiumEnd:   util.PtrInt64(now),
+				PremiumStart: &testNow,
+				PremiumEnd:   &testNow,
 			},
 			Likes: []LikeTable{
 				{
 					LikerID:   1,
 					LikeeID:   1,
-					Timestamp: now,
+					Timestamp: testNow,
 				},
 				{
 					LikerID:   1,
 					LikeeID:   2,
-					Timestamp: now,
+					Timestamp: testNow,
 				},
 			},
 			Interests: []InterestTable{

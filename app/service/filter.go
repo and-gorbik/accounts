@@ -117,7 +117,7 @@ func buildValue(value string, typ int) string {
 		return escapeString(value)
 	case util.TypeTimestamp:
 		ts, _ := util.ParseTimestamp(value)
-		return fmt.Sprintf("'%s'", util.TimestampToDatetime(ts).Format(TimeLayout))
+		return fmt.Sprintf("'%s'", util.TimestampToDatetime(&ts).Format(TimeLayout))
 	default:
 	}
 

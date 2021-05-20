@@ -75,7 +75,7 @@ func (a *AccountInput) GetPerson() PersonTable {
 		ID:      int32(*a.ID),
 		Email:   string(*a.Email),
 		Sex:     string(*a.Sex),
-		Birth:   int64(*a.Birth),
+		Birth:   *util.TimestampToDatetime((*int64)(a.Birth)),
 		Name:    (*string)(a.Name),
 		Surname: (*string)(a.Surname),
 		Phone:   (*string)(a.Phone),
@@ -89,13 +89,13 @@ func (a *AccountInput) GetAccount() AccountTable {
 
 	table := AccountTable{
 		ID:     int32(*a.ID),
-		Joined: int64(*a.Joined),
+		Joined: *util.TimestampToDatetime((*int64)(a.Joined)),
 		Status: string(*a.Status),
 	}
 
 	if a.Premium != nil {
-		table.PremiumStart = (*int64)(a.Premium.Start)
-		table.PremiumEnd = (*int64)(a.Premium.End)
+		table.PremiumStart = util.TimestampToDatetime((*int64)(a.Premium.Start))
+		table.PremiumEnd = util.TimestampToDatetime((*int64)(a.Premium.End))
 	}
 
 	return table
@@ -111,7 +111,7 @@ func (a *AccountInput) GetLikes() []LikeTable {
 		tables = append(tables, LikeTable{
 			LikerID:   int32(*a.ID),
 			LikeeID:   int32(*like.UserID),
-			Timestamp: int64(*like.Timestamp),
+			Timestamp: *util.TimestampToDatetime((*int64)(like.Timestamp)),
 		})
 	}
 
