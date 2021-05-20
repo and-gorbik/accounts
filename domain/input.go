@@ -1,8 +1,9 @@
 package domain
 
 import (
-	"accounts/infrastructure"
 	"errors"
+
+	"accounts/util"
 )
 
 var (
@@ -22,8 +23,8 @@ type AccountInput struct {
 	Name      *FieldFirstname     `json:"fname"`
 	Surname   *FieldSurname       `json:"sname"`
 	Phone     *FieldPhone         `json:"phone"`
-	Country   *FieldID            `json:"country"`
-	City      *FieldID            `json:"city"`
+	Country   *FieldCountry       `json:"country"`
+	City      *FieldCity          `json:"city"`
 	Interests []*FieldInterest    `json:"interests"`
 	Premium   *PremiumInput       `json:"premium"`
 	Likes     []*AccountLikeInput `json:"likes"`
@@ -36,7 +37,7 @@ func (a *AccountInput) Validate() error {
 		a.validated = true
 	}()
 
-	if infrastructure.AnyIsNil(a.ID, a.Email, a.Sex, a.Birth, a.Joined, a.Status) {
+	if util.AnyIsNil(a.ID, a.Email, a.Sex, a.Birth, a.Joined, a.Status) {
 		return errEmptyField
 	}
 
@@ -71,14 +72,13 @@ func (a *AccountInput) GetPerson() PersonTable {
 	}
 
 	return PersonTable{
-		Email:     string(*a.Email),
-		Sex:       string(*a.Sex),
-		Birth:     int64(*a.Birth),
-		Name:      (*string)(a.Name),
-		Surname:   (*string)(a.Surname),
-		Phone:     (*string)(a.Phone),
-		CountryID: (*int32)(a.Country),
-		CityID:    (*int32)(a.City),
+		ID:      int32(*a.ID),
+		Email:   string(*a.Email),
+		Sex:     string(*a.Sex),
+		Birth:   int64(*a.Birth),
+		Name:    (*string)(a.Name),
+		Surname: (*string)(a.Surname),
+		Phone:   (*string)(a.Phone),
 	}
 }
 
@@ -103,7 +103,7 @@ func (a *AccountInput) GetAccount() AccountTable {
 
 func (a *AccountInput) GetLikes() []LikeTable {
 	if !a.validated || a.Likes == nil || len(a.Likes) == 0 {
-		return []LikeTable{}
+		return nil
 	}
 
 	tables := make([]LikeTable, 0, len(a.Likes))
@@ -120,7 +120,7 @@ func (a *AccountInput) GetLikes() []LikeTable {
 
 func (a *AccountInput) GetInterests() []InterestTable {
 	if !a.validated || a.Interests == nil || len(a.Interests) == 0 {
-		return []InterestTable{}
+		return nil
 	}
 
 	tables := make([]InterestTable, 0, len(a.Interests))
@@ -134,22 +134,22 @@ func (a *AccountInput) GetInterests() []InterestTable {
 	return tables
 }
 
-func (a *AccountInput) GetCity() CityTable {
-	if !a.validated {
-		return CityTable{}
+func (a *AccountInput) GetCity() *CityTable {
+	if !a.validated || a.City == nil {
+		return nil
 	}
 
-	return CityTable{
+	return &CityTable{
 		Name: string(*a.City),
 	}
 }
 
-func (a *AccountInput) GetCountry() CountryTable {
-	if !a.validated {
-		return CountryTable{}
+func (a *AccountInput) GetCountry() *CountryTable {
+	if !a.validated || a.Country == nil {
+		return nil
 	}
 
-	return CountryTable{
+	return &CountryTable{
 		Name: string(*a.Country),
 	}
 }
@@ -160,7 +160,11 @@ type PremiumInput struct {
 }
 
 func (p *PremiumInput) Validate() error {
-	if infrastructure.AnyIsNil(p.Start, p.End) {
+	if p == nil {
+		return nil
+	}
+
+	if util.AnyIsNil(p.Start, p.End) {
 		return errEmptyField
 	}
 
@@ -173,7 +177,11 @@ type AccountLikeInput struct {
 }
 
 func (a *AccountLikeInput) Validate() error {
-	if infrastructure.AnyIsNil(a.UserID, a.Timestamp) {
+	if a == nil {
+		return nil
+	}
+
+	if util.AnyIsNil(a.UserID, a.Timestamp) {
 		return errEmptyField
 	}
 

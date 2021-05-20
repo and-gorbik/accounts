@@ -3,7 +3,7 @@ package domain
 import (
 	"errors"
 
-	"accounts/infrastructure"
+	"accounts/util"
 )
 
 var (
@@ -12,8 +12,12 @@ var (
 
 type FieldID int32
 
-func (id FieldID) Validate() error {
-	if id < 0 {
+func (field *FieldID) Validate() error {
+	if field == nil {
+		return nil
+	}
+
+	if *field < 0 {
 		return errInvalidValue
 	}
 
@@ -22,38 +26,62 @@ func (id FieldID) Validate() error {
 
 type FieldEmail string
 
-func (s FieldEmail) Validate() error {
-	return infrastructure.ValidateString(string(s), maxLenEmail, nil, regexpEmail)
+func (field *FieldEmail) Validate() error {
+	if field == nil {
+		return nil
+	}
+
+	return util.ValidateString(string(*field), maxLenEmail, nil, regexpEmail)
 }
 
 type FieldInterest string
 
-func (s FieldInterest) Validate() error {
-	return infrastructure.ValidateString(string(s), maxLenInterest, nil, nil)
+func (field *FieldInterest) Validate() error {
+	if field == nil {
+		return nil
+	}
+
+	return util.ValidateString(string(*field), maxLenInterest, nil, nil)
 }
 
 type FieldFirstname string
 
-func (s FieldFirstname) Validate() error {
-	return infrastructure.ValidateString(string(s), maxLenFirstname, nil, nil)
+func (field *FieldFirstname) Validate() error {
+	if field == nil {
+		return nil
+	}
+
+	return util.ValidateString(string(*field), maxLenFirstname, nil, nil)
 }
 
 type FieldSurname string
 
-func (s FieldSurname) Validate() error {
-	return infrastructure.ValidateString(string(s), maxLenSurname, nil, nil)
+func (field *FieldSurname) Validate() error {
+	if field == nil {
+		return nil
+	}
+
+	return util.ValidateString(string(*field), maxLenSurname, nil, nil)
 }
 
 type FieldPhone string
 
-func (s FieldPhone) Validate() error {
-	return infrastructure.ValidateString(string(s), maxLenPhone, nil, regexpPhone)
+func (field *FieldPhone) Validate() error {
+	if field == nil {
+		return nil
+	}
+
+	return util.ValidateString(string(*field), maxLenPhone, nil, regexpPhone)
 }
 
 type FieldSex string
 
-func (s FieldSex) Validate() error {
-	if !sexIsValid(string(s)) {
+func (field *FieldSex) Validate() error {
+	if field == nil {
+		return nil
+	}
+
+	if !sexIsValid(string(*field)) {
 		return errInvalidValue
 	}
 
@@ -62,8 +90,12 @@ func (s FieldSex) Validate() error {
 
 type FieldStatus string
 
-func (s FieldStatus) Validate() error {
-	if !statusIsValid(string(s)) {
+func (field *FieldStatus) Validate() error {
+	if field == nil {
+		return nil
+	}
+
+	if !statusIsValid(string(*field)) {
 		return errInvalidValue
 	}
 
@@ -72,36 +104,60 @@ func (s FieldStatus) Validate() error {
 
 type FieldCountry string
 
-func (s FieldCountry) Validate() error {
-	return infrastructure.ValidateString(string(s), maxLenCountry, nil, nil)
+func (field *FieldCountry) Validate() error {
+	if field == nil {
+		return nil
+	}
+
+	return util.ValidateString(string(*field), maxLenCountry, nil, nil)
 }
 
 type FieldCity string
 
-func (s FieldCity) Validate() error {
-	return infrastructure.ValidateString(string(s), maxLenCity, nil, nil)
+func (field *FieldCity) Validate() error {
+	if field == nil {
+		return nil
+	}
+
+	return util.ValidateString(string(*field), maxLenCity, nil, nil)
 }
 
 type FieldBirth int64
 
-func (t FieldBirth) Validate() error {
-	return infrastructure.ValidateTimestamp(int64(t), &minBirth, &maxBirth)
+func (field *FieldBirth) Validate() error {
+	if field == nil {
+		return nil
+	}
+
+	return util.ValidateTimestamp(int64(*field), &minBirth, &maxBirth)
 }
 
 type FieldJoined int64
 
-func (t FieldJoined) Validate() error {
-	return infrastructure.ValidateTimestamp(int64(t), &minJoined, &maxJoined)
+func (field *FieldJoined) Validate() error {
+	if field == nil {
+		return nil
+	}
+
+	return util.ValidateTimestamp(int64(*field), &minJoined, &maxJoined)
 }
 
 type FieldPremium int64
 
-func (t FieldPremium) Validate() error {
-	return infrastructure.ValidateTimestamp(int64(t), &minPremiumStart, &minPremiumEnd)
+func (field *FieldPremium) Validate() error {
+	if field == nil {
+		return nil
+	}
+
+	return util.ValidateTimestamp(int64(*field), &minPremiumStart, &minPremiumEnd)
 }
 
 type FieldTimestamp int64
 
-func (t FieldTimestamp) Validate() error {
-	return infrastructure.ValidateTimestamp(int64(t), nil, nil)
+func (field *FieldTimestamp) Validate() error {
+	if field == nil {
+		return nil
+	}
+
+	return util.ValidateTimestamp(int64(*field), nil, nil)
 }
