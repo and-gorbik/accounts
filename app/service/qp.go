@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"accounts/domain"
-	"accounts/infrastructure"
+	"accounts/util"
 )
 
 type QueryParam struct {
@@ -87,20 +87,20 @@ var (
 	}
 
 	qpTypes = map[string]int{
-		qpSex:       infrastructure.TypeStr,
-		qpEmail:     infrastructure.TypeStr,
-		qpStatus:    infrastructure.TypeStr,
-		qpFirstname: infrastructure.TypeStr,
-		qpSurname:   infrastructure.TypeStr,
-		qpPhone:     infrastructure.TypeStr,
-		qpCountry:   infrastructure.TypeStr,
-		qpCity:      infrastructure.TypeStr,
-		qpBirth:     infrastructure.TypeTimestamp,
-		qpInterests: infrastructure.TypeStrArray,
-		qpLikes:     infrastructure.TypeIntArray,
-		qpPremium:   infrastructure.TypeTimestamp,
-		qpJoined:    infrastructure.TypeTimestamp,
-		qpLimit:     infrastructure.TypeInt,
+		qpSex:       util.TypeStr,
+		qpEmail:     util.TypeStr,
+		qpStatus:    util.TypeStr,
+		qpFirstname: util.TypeStr,
+		qpSurname:   util.TypeStr,
+		qpPhone:     util.TypeStr,
+		qpCountry:   util.TypeStr,
+		qpCity:      util.TypeStr,
+		qpBirth:     util.TypeTimestamp,
+		qpInterests: util.TypeStrArray,
+		qpLikes:     util.TypeIntArray,
+		qpPremium:   util.TypeTimestamp,
+		qpJoined:    util.TypeTimestamp,
+		qpLimit:     util.TypeInt,
 	}
 )
 
@@ -196,45 +196,45 @@ func validateValues(param string, values []string) error {
 
 	switch param {
 	case qpSex:
-		return domain.FieldSex(values[0]).Validate()
+		return (*domain.FieldSex)(&values[0]).Validate()
 	case qpEmail:
-		return domain.FieldEmail(values[0]).Validate()
+		return (*domain.FieldEmail)(&values[0]).Validate()
 	case qpStatus:
-		return domain.FieldStatus(values[0]).Validate()
+		return (*domain.FieldStatus)(&values[0]).Validate()
 	case qpFirstname:
-		return domain.FieldFirstname(values[0]).Validate()
+		return (*domain.FieldFirstname)(&values[0]).Validate()
 	case qpSurname:
-		return domain.FieldSurname(values[0]).Validate()
+		return (*domain.FieldSurname)(&values[0]).Validate()
 	case qpPhone:
-		return domain.FieldPhone(values[0]).Validate()
+		return (*domain.FieldPhone)(&values[0]).Validate()
 	case qpCountry:
-		return domain.FieldCountry(values[0]).Validate()
+		return (*domain.FieldCountry)(&values[0]).Validate()
 	case qpCity:
-		return domain.FieldCity(values[0]).Validate()
+		return (*domain.FieldCity)(&values[0]).Validate()
 	case qpBirth:
-		ts, err := infrastructure.ParseTimestamp(values[0])
+		ts, err := util.ParseTimestamp(values[0])
 		if err != nil {
 			return err
 		}
 
-		return domain.FieldBirth(ts).Validate()
+		return (*domain.FieldBirth)(&ts).Validate()
 	case qpPremium:
-		ts, err := infrastructure.ParseTimestamp(values[0])
+		ts, err := util.ParseTimestamp(values[0])
 		if err != nil {
 			return err
 		}
 
-		return domain.FieldPremium(ts).Validate()
+		return (*domain.FieldPremium)(&ts).Validate()
 	case qpJoined:
-		ts, err := infrastructure.ParseTimestamp(values[0])
+		ts, err := util.ParseTimestamp(values[0])
 		if err != nil {
 			return err
 		}
 
-		return domain.FieldPremium(ts).Validate()
+		return (*domain.FieldPremium)(&ts).Validate()
 	case qpInterests:
 		for _, value := range values {
-			if err := domain.FieldInterest(value).Validate(); err != nil {
+			if err := (*domain.FieldInterest)(&value).Validate(); err != nil {
 				return err
 			}
 		}
@@ -242,19 +242,20 @@ func validateValues(param string, values []string) error {
 		return nil
 	case qpLikes:
 		for _, value := range values {
-			intVal, err := infrastructure.ParseInt(value)
+			intVal, err := util.ParseInt(value)
 			if err != nil {
 				return err
 			}
 
-			if err := domain.FieldID(intVal).Validate(); err != nil {
+			int32Val := int32(intVal)
+			if err := (*domain.FieldID)(&int32Val).Validate(); err != nil {
 				return err
 			}
 		}
 
 		return nil
 	case qpLimit:
-		_, err := infrastructure.ParseInt(values[0])
+		_, err := util.ParseInt(values[0])
 		if err != nil {
 			return err
 		}

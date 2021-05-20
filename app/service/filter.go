@@ -5,7 +5,7 @@ import (
 	"math/rand"
 	"strings"
 
-	"accounts/infrastructure"
+	"accounts/util"
 )
 
 var (
@@ -90,10 +90,10 @@ func buildOpOverArray(p QueryParam, sqlOp string) string {
 	values := strings.Split(p.StrValue, ",")
 
 	var itemType int
-	if p.Type == infrastructure.TypeStrArray {
-		itemType = infrastructure.TypeStr
+	if p.Type == util.TypeStrArray {
+		itemType = util.TypeStr
 	} else {
-		itemType = infrastructure.TypeInt
+		itemType = util.TypeInt
 	}
 
 	var b strings.Builder
@@ -113,11 +113,11 @@ func buildOpOverArray(p QueryParam, sqlOp string) string {
 
 func buildValue(value string, typ int) string {
 	switch typ {
-	case infrastructure.TypeStr:
+	case util.TypeStr:
 		return escapeString(value)
-	case infrastructure.TypeTimestamp:
-		ts, _ := infrastructure.ParseTimestamp(value)
-		return fmt.Sprintf("'%s'", infrastructure.TimestampToDatetime(ts).Format(TimeLayout))
+	case util.TypeTimestamp:
+		ts, _ := util.ParseTimestamp(value)
+		return fmt.Sprintf("'%s'", util.TimestampToDatetime(ts).Format(TimeLayout))
 	default:
 	}
 

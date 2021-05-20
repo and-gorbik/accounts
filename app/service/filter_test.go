@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"accounts/infrastructure"
+	"accounts/util"
 )
 
 type testCaseFilter struct {
@@ -19,10 +19,10 @@ func Test_BuildFilter(t *testing.T) {
 		{
 			Params: map[string]QueryParam{
 				"sex": {
-					Type:     infrastructure.TypeStr,
+					Type:     util.TypeStr,
 					Field:    "sex",
 					StrValue: "m",
-					Op:       infrastructure.PtrString(opEq),
+					Op:       util.PtrString(opEq),
 				},
 			},
 			Expected: fmt.Sprintf("sex = %s", escapeString("m")),
@@ -30,10 +30,10 @@ func Test_BuildFilter(t *testing.T) {
 		{
 			Params: map[string]QueryParam{
 				"email": {
-					Type:     infrastructure.TypeStr,
+					Type:     util.TypeStr,
 					Field:    "email",
 					StrValue: "test@test.ru",
-					Op:       infrastructure.PtrString(opLt),
+					Op:       util.PtrString(opLt),
 				},
 			},
 			Expected: fmt.Sprintf("email < %s", escapeString("test@test.ru")),
@@ -41,10 +41,10 @@ func Test_BuildFilter(t *testing.T) {
 		{
 			Params: map[string]QueryParam{
 				"email": {
-					Type:     infrastructure.TypeStr,
+					Type:     util.TypeStr,
 					Field:    "email",
 					StrValue: "test.ru",
-					Op:       infrastructure.PtrString(opDomain),
+					Op:       util.PtrString(opDomain),
 				},
 			},
 			Expected: fmt.Sprintf("email LIKE %s", escapeString("%test.ru")),
@@ -52,10 +52,10 @@ func Test_BuildFilter(t *testing.T) {
 		{
 			Params: map[string]QueryParam{
 				"birth": {
-					Type:     infrastructure.TypeTimestamp,
+					Type:     util.TypeTimestamp,
 					Field:    "birth",
 					StrValue: "1485724260",
-					Op:       infrastructure.PtrString(opGt),
+					Op:       util.PtrString(opGt),
 				},
 			},
 			Expected: "birth > '2017-01-30 00:11:00'",
@@ -63,10 +63,10 @@ func Test_BuildFilter(t *testing.T) {
 		{
 			Params: map[string]QueryParam{
 				"status": {
-					Type:     infrastructure.TypeStr,
+					Type:     util.TypeStr,
 					Field:    "status",
 					StrValue: "заняты",
-					Op:       infrastructure.PtrString(opNeq),
+					Op:       util.PtrString(opNeq),
 				},
 			},
 			Expected: fmt.Sprintf("status != %s", escapeString("заняты")),
@@ -74,10 +74,10 @@ func Test_BuildFilter(t *testing.T) {
 		{
 			Params: map[string]QueryParam{
 				"fname": {
-					Type:     infrastructure.TypeInt,
+					Type:     util.TypeInt,
 					Field:    "fname",
 					StrValue: "1",
-					Op:       infrastructure.PtrString(opNull),
+					Op:       util.PtrString(opNull),
 				},
 			},
 			Expected: fmt.Sprintf("fname IS NULL"),
@@ -85,10 +85,10 @@ func Test_BuildFilter(t *testing.T) {
 		{
 			Params: map[string]QueryParam{
 				"sname": {
-					Type:     infrastructure.TypeInt,
+					Type:     util.TypeInt,
 					Field:    "sname",
 					StrValue: "0",
-					Op:       infrastructure.PtrString(opNull),
+					Op:       util.PtrString(opNull),
 				},
 			},
 			Expected: fmt.Sprintf("sname IS NOT NULL"),
@@ -96,10 +96,10 @@ func Test_BuildFilter(t *testing.T) {
 		{
 			Params: map[string]QueryParam{
 				"sname": {
-					Type:     infrastructure.TypeStr,
+					Type:     util.TypeStr,
 					Field:    "sname",
 					StrValue: "Ан",
-					Op:       infrastructure.PtrString(opStarts),
+					Op:       util.PtrString(opStarts),
 				},
 			},
 			Expected: fmt.Sprintf("sname LIKE %s", escapeString("Ан%")),
@@ -107,10 +107,10 @@ func Test_BuildFilter(t *testing.T) {
 		{
 			Params: map[string]QueryParam{
 				"phone": {
-					Type:     infrastructure.TypeInt,
+					Type:     util.TypeInt,
 					Field:    "phone",
 					StrValue: "985",
-					Op:       infrastructure.PtrString(opCode),
+					Op:       util.PtrString(opCode),
 				},
 			},
 			Expected: fmt.Sprintf("phone LIKE %s", escapeString("%(985)%")),
@@ -118,10 +118,10 @@ func Test_BuildFilter(t *testing.T) {
 		{
 			Params: map[string]QueryParam{
 				"phone": {
-					Type:     infrastructure.TypeInt,
+					Type:     util.TypeInt,
 					Field:    "phone",
 					StrValue: "985",
-					Op:       infrastructure.PtrString(opCode),
+					Op:       util.PtrString(opCode),
 				},
 			},
 			Expected: fmt.Sprintf("phone LIKE %s", escapeString("%(985)%")),
@@ -129,10 +129,10 @@ func Test_BuildFilter(t *testing.T) {
 		{
 			Params: map[string]QueryParam{
 				"city": {
-					Type:     infrastructure.TypeStrArray,
+					Type:     util.TypeStrArray,
 					Field:    "city",
 					StrValue: "Москва,Питер,Новосибирск",
-					Op:       infrastructure.PtrString(opAny),
+					Op:       util.PtrString(opAny),
 				},
 			},
 			Expected: fmt.Sprintf("city = ANY (%s, %s, %s)", escapeString("Москва"), escapeString("Питер"), escapeString("Новосибирск")),
@@ -140,10 +140,10 @@ func Test_BuildFilter(t *testing.T) {
 		{
 			Params: map[string]QueryParam{
 				"likes": {
-					Type:     infrastructure.TypeIntArray,
+					Type:     util.TypeIntArray,
 					Field:    "likes",
 					StrValue: "1,2,3",
-					Op:       infrastructure.PtrString(opContains),
+					Op:       util.PtrString(opContains),
 				},
 			},
 			Expected: "likes = ALL (1, 2, 3)",
