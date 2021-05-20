@@ -150,8 +150,8 @@ func writeCountriesAndCities(conn *sqlx.DB, accs []Account) (countries, cities m
 }
 
 func writeAccountsAndPersons(conn *sqlx.DB, accs []Account, countries, cities map[string]int32) error {
-	accounts := make([]domain.Account, 0, len(accs))
-	persons := make([]domain.Person, 0, len(accs))
+	accounts := make([]domain.AccountTable, 0, len(accs))
+	persons := make([]domain.PersonTable, 0, len(accs))
 
 	for _, acc := range accs {
 		accounts = append(accounts, newAccount(&acc))
@@ -171,7 +171,14 @@ func writeAccountsAndPersons(conn *sqlx.DB, accs []Account, countries, cities ma
 	queryAccountTotal := `INSERT INTO account(id, joined, status, prem_start, prem_end) VALUES %s;`
 	queriesAccount := make([]string, 0, len(accounts))
 	for _, a := range accounts {
-		query := fmt.Sprintf(`(%d, %s, '%s', %s, %s)`, a.ID, nullableTimestamp(a.Joined), a.Status, nullableTimestamp(a.PremiumStart), nullableTimestamp(a.PremiumEnd))
+		query := fmt.Sprintf(`(%d, %s, '%s', %s, %s)`,
+			a.ID,
+			nullableTimestamp(&a.Joined),
+			a.Status,
+			nullableTimestamp(a.PremiumStart),
+			nullableTimestamp(a.PremiumEnd),
+		)
+
 		queriesAccount = append(queriesAccount, query)
 	}
 
@@ -189,7 +196,7 @@ func writeAccountsAndPersons(conn *sqlx.DB, accs []Account, countries, cities ma
 			fmt.Sprintf(
 				`(%d, '%s', '%s', %s, %s, %s, %s, %s, %s)`,
 				p.ID, p.Email, p.Sex,
-				nullableTimestamp(p.Birth),
+				nullableTimestamp(&p.Birth),
 				nullableString(p.Name),
 				nullableString(p.Surname),
 				nullableString(p.Phone),
@@ -209,8 +216,8 @@ func writeAccountsAndPersons(conn *sqlx.DB, accs []Account, countries, cities ma
 }
 
 func writeLikesAndInterests(conn *sqlx.DB, accs []Account) error {
-	likes := make([]domain.Like, 0)
-	interests := make([]domain.Interest, 0)
+	likes := make([]domain.LikeTable, 0)
+	interests := make([]domain.InterestTable, 0)
 
 	for _, acc := range accs {
 		likes = append(likes, newLikes(&acc)...)
@@ -220,7 +227,7 @@ func writeLikesAndInterests(conn *sqlx.DB, accs []Account) error {
 	queryLikeTotal := `INSERT INTO likes(liker_id, likee_id, ts) VALUES %s;`
 	queriesLike := make([]string, 0, len(likes))
 	for _, like := range likes {
-		queriesLike = append(queriesLike, fmt.Sprintf(`(%d, %d, %s)`, like.LikerID, like.LikeeID, nullableTimestamp(like.Timestamp)))
+		queriesLike = append(queriesLike, fmt.Sprintf(`(%d, %d, %s)`, like.LikerID, like.LikeeID, nullableTimestamp(&like.Timestamp)))
 	}
 
 	if _, err := conn.Exec(fmt.Sprintf(queryLikeTotal, strings.Join(queriesLike, ", "))); err != nil {
@@ -240,26 +247,25 @@ func writeLikesAndInterests(conn *sqlx.DB, accs []Account) error {
 	return nil
 }
 
-func newAccount(acc *Account) domain.Account {
-	a := domain.Account{
+func newAccount(acc *Account) domain.AccountTable {
+	a := domain.AccountTable{
 		ID:     acc.ID,
 		Joined: int64PtrToTimestamp(&acc.Joined),
 		Status: acc.Status,
 	}
 
 	if acc.Premium != nil {
-		a.PremiumStart = int64PtrToTimestamp(&acc.Premium.Start)
-		a.PremiumEnd = int64PtrToTimestamp(&acc.Premium.End)
-	} else {
-		a.PremiumStart = nullTime
-		a.PremiumEnd = nullTime
+		start := int64PtrToTimestamp(&acc.Premium.Start)
+		a.PremiumStart = &start
+		end := int64PtrToTimestamp(&acc.Premium.End)
+		a.PremiumEnd = &end
 	}
 
 	return a
 }
 
-func newPerson(acc *Account, countryID, cityID *int32) domain.Person {
-	return domain.Person{
+func newPerson(acc *Account, countryID, cityID *int32) domain.PersonTable {
+	return domain.PersonTable{
 		ID:        acc.ID,
 		Email:     acc.Email,
 		Sex:       acc.Sex,
@@ -272,11 +278,11 @@ func newPerson(acc *Account, countryID, cityID *int32) domain.Person {
 	}
 }
 
-func newLikes(acc *Account) []domain.Like {
-	likes := make([]domain.Like, 0, len(acc.Likes))
+func newLikes(acc *Account) []domain.LikeTable {
+	likes := make([]domain.LikeTable, 0, len(acc.Likes))
 
 	for _, like := range acc.Likes {
-		likes = append(likes, domain.Like{
+		likes = append(likes, domain.LikeTable{
 			LikerID:   acc.ID,
 			LikeeID:   like.UserID,
 			Timestamp: int64PtrToTimestamp(&like.Timestamp),
@@ -286,11 +292,11 @@ func newLikes(acc *Account) []domain.Like {
 	return likes
 }
 
-func newInterests(acc *Account) []domain.Interest {
-	interests := make([]domain.Interest, 0, len(acc.Interests))
+func newInterests(acc *Account) []domain.InterestTable {
+	interests := make([]domain.InterestTable, 0, len(acc.Interests))
 
 	for _, interest := range acc.Interests {
-		interests = append(interests, domain.Interest{
+		interests = append(interests, domain.InterestTable{
 			AccountID: acc.ID,
 			Name:      interest,
 		})
@@ -303,20 +309,20 @@ func int32Ptr(val int32) *int32 {
 	return &val
 }
 
-func int64PtrToTimestamp(val *int64) string {
+func int64PtrToTimestamp(val *int64) time.Time {
 	if val == nil {
-		return nullTime
+		return time.Time{}
 	}
 
-	return time.Unix(*val, 0).Format(timestampLayout)
+	return time.Unix(*val, 0)
 }
 
-func nullableTimestamp(timestamp string) string {
-	if timestamp == nullTime {
+func nullableTimestamp(ts *time.Time) string {
+	if ts == nil || *ts == (time.Time{}) {
 		return "null"
 	}
 
-	return fmt.Sprintf(`'%s'::timestamp`, timestamp)
+	return fmt.Sprintf(`'%s'::timestamp`, ts.Format(timestampLayout))
 }
 
 func nullableString(str *string) string {
