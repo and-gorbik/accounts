@@ -139,8 +139,8 @@ func Test_AccountInputToModels_Success(t *testing.T) {
 			continue
 		}
 
-		assert.Equal(t, testcase.AccountModel, testcase.Input.AccountModel())
-		assert.Equal(t, testcase.PersonModel, testcase.Input.PersonModel(nil, nil))
+		assert.Equal(t, testcase.AccountModel, *testcase.Input.AccountModel())
+		assert.Equal(t, testcase.PersonModel, *testcase.Input.PersonModel(nil, nil))
 		assert.Equal(t, testcase.InterestModels, testcase.Input.InterestModels())
 		assert.Equal(t, testcase.LikeModels, testcase.Input.LikeModels())
 		assert.Equal(t, testcase.CityModel, testcase.Input.CityModel())
