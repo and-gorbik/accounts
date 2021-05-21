@@ -150,8 +150,8 @@ func writeCountriesAndCities(conn *sqlx.DB, accs []Account) (countries, cities m
 }
 
 func writeAccountsAndPersons(conn *sqlx.DB, accs []Account, countries, cities map[string]int32) error {
-	accounts := make([]domain.AccountTable, 0, len(accs))
-	persons := make([]domain.PersonTable, 0, len(accs))
+	accounts := make([]domain.AccountModel, 0, len(accs))
+	persons := make([]domain.PersonModel, 0, len(accs))
 
 	for _, acc := range accs {
 		accounts = append(accounts, newAccount(&acc))
@@ -168,13 +168,12 @@ func writeAccountsAndPersons(conn *sqlx.DB, accs []Account, countries, cities ma
 		persons = append(persons, newPerson(&acc, countryID, cityID))
 	}
 
-	queryAccountTotal := `INSERT INTO account(id, joined, status, prem_start, prem_end) VALUES %s;`
+	queryAccountTotal := `INSERT INTO account(id, joined, prem_start, prem_end) VALUES %s;`
 	queriesAccount := make([]string, 0, len(accounts))
 	for _, a := range accounts {
-		query := fmt.Sprintf(`(%d, %s, '%s', %s, %s)`,
+		query := fmt.Sprintf(`(%d, %s, %s, %s)`,
 			a.ID,
 			nullableTimestamp(&a.Joined),
-			a.Status,
 			nullableTimestamp(a.PremiumStart),
 			nullableTimestamp(a.PremiumEnd),
 		)
@@ -188,14 +187,14 @@ func writeAccountsAndPersons(conn *sqlx.DB, accs []Account, countries, cities ma
 		return err
 	}
 
-	queryPersonTotal := `INSERT INTO person(account_id, email, sex, birth, name, surname, phone, country_id, city_id) VALUES %s;`
+	queryPersonTotal := `INSERT INTO person(account_id, email, sex, status, birth, name, surname, phone, country_id, city_id) VALUES %s;`
 	queriesPerson := make([]string, 0, len(persons))
 	for _, p := range persons {
 		queriesPerson = append(
 			queriesPerson,
 			fmt.Sprintf(
-				`(%d, '%s', '%s', %s, %s, %s, %s, %s, %s)`,
-				p.ID, p.Email, p.Sex,
+				`(%d, '%s', '%s', '%s', %s, %s, %s, %s, %s, %s)`,
+				p.ID, p.Email, p.Sex, p.Status,
 				nullableTimestamp(&p.Birth),
 				nullableString(p.Name),
 				nullableString(p.Surname),
@@ -216,8 +215,8 @@ func writeAccountsAndPersons(conn *sqlx.DB, accs []Account, countries, cities ma
 }
 
 func writeLikesAndInterests(conn *sqlx.DB, accs []Account) error {
-	likes := make([]domain.LikeTable, 0)
-	interests := make([]domain.InterestTable, 0)
+	likes := make([]domain.LikeModel, 0)
+	interests := make([]domain.InterestModel, 0)
 
 	for _, acc := range accs {
 		likes = append(likes, newLikes(&acc)...)
@@ -247,11 +246,10 @@ func writeLikesAndInterests(conn *sqlx.DB, accs []Account) error {
 	return nil
 }
 
-func newAccount(acc *Account) domain.AccountTable {
-	a := domain.AccountTable{
+func newAccount(acc *Account) domain.AccountModel {
+	a := domain.AccountModel{
 		ID:     acc.ID,
 		Joined: int64PtrToTimestamp(&acc.Joined),
-		Status: acc.Status,
 	}
 
 	if acc.Premium != nil {
@@ -264,9 +262,10 @@ func newAccount(acc *Account) domain.AccountTable {
 	return a
 }
 
-func newPerson(acc *Account, countryID, cityID *int32) domain.PersonTable {
-	return domain.PersonTable{
+func newPerson(acc *Account, countryID, cityID *int32) domain.PersonModel {
+	return domain.PersonModel{
 		ID:        acc.ID,
+		Status:    acc.Status,
 		Email:     acc.Email,
 		Sex:       acc.Sex,
 		Birth:     int64PtrToTimestamp(&acc.Birth),
@@ -278,11 +277,11 @@ func newPerson(acc *Account, countryID, cityID *int32) domain.PersonTable {
 	}
 }
 
-func newLikes(acc *Account) []domain.LikeTable {
-	likes := make([]domain.LikeTable, 0, len(acc.Likes))
+func newLikes(acc *Account) []domain.LikeModel {
+	likes := make([]domain.LikeModel, 0, len(acc.Likes))
 
 	for _, like := range acc.Likes {
-		likes = append(likes, domain.LikeTable{
+		likes = append(likes, domain.LikeModel{
 			LikerID:   acc.ID,
 			LikeeID:   like.UserID,
 			Timestamp: int64PtrToTimestamp(&like.Timestamp),
@@ -292,11 +291,11 @@ func newLikes(acc *Account) []domain.LikeTable {
 	return likes
 }
 
-func newInterests(acc *Account) []domain.InterestTable {
-	interests := make([]domain.InterestTable, 0, len(acc.Interests))
+func newInterests(acc *Account) []domain.InterestModel {
+	interests := make([]domain.InterestModel, 0, len(acc.Interests))
 
 	for _, interest := range acc.Interests {
-		interests = append(interests, domain.InterestTable{
+		interests = append(interests, domain.InterestModel{
 			AccountID: acc.ID,
 			Name:      interest,
 		})
