@@ -66,31 +66,33 @@ func (a *AccountInput) Validate() error {
 	)
 }
 
-func (a *AccountInput) GetPerson() PersonTable {
+func (a *AccountInput) PersonModel(cityID, countryID *int32) *PersonModel {
 	if !a.validated {
-		return PersonTable{}
+		return nil
 	}
 
-	return PersonTable{
-		ID:      int32(*a.ID),
-		Email:   string(*a.Email),
-		Sex:     string(*a.Sex),
-		Birth:   *util.TimestampToDatetime((*int64)(a.Birth)),
-		Name:    (*string)(a.Name),
-		Surname: (*string)(a.Surname),
-		Phone:   (*string)(a.Phone),
+	return &PersonModel{
+		ID:        int32(*a.ID),
+		Status:    string(*a.Status),
+		Email:     string(*a.Email),
+		Sex:       string(*a.Sex),
+		Birth:     *util.TimestampToDatetime((*int64)(a.Birth)),
+		Name:      (*string)(a.Name),
+		Surname:   (*string)(a.Surname),
+		Phone:     (*string)(a.Phone),
+		CountryID: cityID,
+		CityID:    countryID,
 	}
 }
 
-func (a *AccountInput) GetAccount() AccountTable {
+func (a *AccountInput) AccountModel() *AccountModel {
 	if !a.validated {
-		return AccountTable{}
+		return nil
 	}
 
-	table := AccountTable{
+	table := &AccountModel{
 		ID:     int32(*a.ID),
 		Joined: *util.TimestampToDatetime((*int64)(a.Joined)),
-		Status: string(*a.Status),
 	}
 
 	if a.Premium != nil {
@@ -101,55 +103,55 @@ func (a *AccountInput) GetAccount() AccountTable {
 	return table
 }
 
-func (a *AccountInput) GetLikes() []LikeTable {
-	if !a.validated || a.Likes == nil || len(a.Likes) == 0 {
+func (a *AccountInput) LikeModels() []LikeModel {
+	if a.Likes == nil || len(a.Likes) == 0 || !a.validated {
 		return nil
 	}
 
-	tables := make([]LikeTable, 0, len(a.Likes))
+	models := make([]LikeModel, 0, len(a.Likes))
 	for _, like := range a.Likes {
-		tables = append(tables, LikeTable{
+		models = append(models, LikeModel{
 			LikerID:   int32(*a.ID),
 			LikeeID:   int32(*like.UserID),
 			Timestamp: *util.TimestampToDatetime((*int64)(like.Timestamp)),
 		})
 	}
 
-	return tables
+	return models
 }
 
-func (a *AccountInput) GetInterests() []InterestTable {
-	if !a.validated || a.Interests == nil || len(a.Interests) == 0 {
+func (a *AccountInput) InterestModels() []InterestModel {
+	if a.Interests == nil || len(a.Interests) == 0 || !a.validated {
 		return nil
 	}
 
-	tables := make([]InterestTable, 0, len(a.Interests))
+	models := make([]InterestModel, 0, len(a.Interests))
 	for _, interest := range a.Interests {
-		tables = append(tables, InterestTable{
+		models = append(models, InterestModel{
 			AccountID: int32(*a.ID),
 			Name:      string(*interest),
 		})
 	}
 
-	return tables
+	return models
 }
 
-func (a *AccountInput) GetCity() *CityTable {
-	if !a.validated || a.City == nil {
+func (a *AccountInput) CityModel() *CityModel {
+	if a.City == nil || !a.validated {
 		return nil
 	}
 
-	return &CityTable{
+	return &CityModel{
 		Name: string(*a.City),
 	}
 }
 
-func (a *AccountInput) GetCountry() *CountryTable {
-	if !a.validated || a.Country == nil {
+func (a *AccountInput) CountryModel() *CountryModel {
+	if a.Country == nil || !a.validated {
 		return nil
 	}
 
-	return &CountryTable{
+	return &CountryModel{
 		Name: string(*a.Country),
 	}
 }
@@ -189,16 +191,106 @@ func (a *AccountLikeInput) Validate() error {
 }
 
 type AccountUpdate struct {
-	ID      FieldID     `json:"-"`
-	Email   FieldEmail  `json:"email,omitempty"`
-	Birth   FieldBirth  `json:"birth,omitempty"`
-	City    *FieldID    `json:"city,omitempty"`
-	Country *FieldID    `json:"country,omitempty"`
-	Status  FieldStatus `json:"status,omitempty"`
+	ID FieldID `json:"-"`
+
+	Email   *FieldEmail   `json:"email,omitempty"`
+	Birth   *FieldBirth   `json:"birth,omitempty"`
+	City    *FieldCity    `json:"city,omitempty"`
+	Country *FieldCountry `json:"country,omitempty"`
+	Status  *FieldStatus  `json:"status,omitempty"`
+
+	validated bool
+}
+
+func (a *AccountUpdate) Validate() error {
+	defer func() {
+		a.validated = true
+	}()
+
+	return checkValidators(&a.ID, a.Email, a.Birth, a.City, a.Country, a.Status)
+}
+
+func (a *AccountUpdate) PersonModel(cityID, countryID *int32) *PersonModel {
+	if !a.validated {
+		return nil
+	}
+
+	return &PersonModel{
+		ID:        int32(a.ID),
+		Status:    string(*a.Status),
+		Email:     string(*a.Email),
+		Birth:     *util.TimestampToDatetime((*int64)(a.Birth)),
+		CityID:    cityID,
+		CountryID: countryID,
+	}
+}
+
+func (a *AccountUpdate) CityModel() *CityModel {
+	if a.City == nil || !a.validated {
+		return nil
+	}
+
+	return &CityModel{
+		Name: string(*a.City),
+	}
+}
+
+func (a *AccountUpdate) CountryModel() *CountryModel {
+	if a.Country == nil || !a.validated {
+		return nil
+	}
+
+	return &CountryModel{
+		Name: string(*a.Country),
+	}
+}
+
+type LikesInput struct {
+	Likes     []LikeInput `json:"likes"`
+	validated bool
+}
+
+func (li *LikesInput) Validate() error {
+	defer func() {
+		li.validated = true
+	}()
+
+	for _, like := range li.Likes {
+		if err := like.Validate(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (li *LikesInput) LikeModels() []LikeModel {
+	if !li.validated {
+		return nil
+	}
+
+	likeModels := make([]LikeModel, 0, len(li.Likes))
+	for _, like := range li.Likes {
+		likeModels = append(likeModels, LikeModel{
+			LikerID:   int32(*like.Liker),
+			LikeeID:   int32(*like.Likee),
+			Timestamp: *util.TimestampToDatetime((*int64)(like.Timestamp)),
+		})
+	}
+
+	return likeModels
 }
 
 type LikeInput struct {
-	Likee     FieldID        `json:"likee"`
-	Liker     FieldID        `json:"liker"`
-	Timestamp FieldTimestamp `json:"ts"`
+	Likee     *FieldID        `json:"likee"`
+	Liker     *FieldID        `json:"liker"`
+	Timestamp *FieldTimestamp `json:"ts"`
+}
+
+func (li *LikeInput) Validate() error {
+	if util.AnyIsNil(li.Likee, li.Liker, li.Timestamp) {
+		return errEmptyField
+	}
+
+	return checkValidators(li.Likee, li.Liker, li.Timestamp)
 }

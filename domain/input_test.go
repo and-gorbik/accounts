@@ -12,12 +12,12 @@ import (
 type testcaseAccount struct {
 	Input AccountInput
 
-	Person    PersonTable
-	Account   AccountTable
-	Likes     []LikeTable
-	Interests []InterestTable
-	City      *CityTable
-	Country   *CountryTable
+	PersonModel    PersonModel
+	AccountModel   AccountModel
+	LikeModels     []LikeModel
+	InterestModels []InterestModel
+	CityModel      *CityModel
+	CountryModel   *CountryModel
 }
 
 var (
@@ -33,16 +33,16 @@ var (
 				Joined: (*FieldJoined)(util.PtrInt64(testNow.Unix())),
 				Status: (*FieldStatus)(util.PtrString("свободны")),
 			},
-			Person: PersonTable{
-				ID:    1,
-				Email: "test1@test.ru",
-				Sex:   "m",
-				Birth: testBirth,
+			PersonModel: PersonModel{
+				ID:     1,
+				Status: "свободны",
+				Email:  "test1@test.ru",
+				Sex:    "m",
+				Birth:  testBirth,
 			},
-			Account: AccountTable{
+			AccountModel: AccountModel{
 				ID:     1,
 				Joined: testNow,
-				Status: "свободны",
 			},
 		},
 		{
@@ -78,8 +78,9 @@ var (
 					},
 				},
 			},
-			Person: PersonTable{
+			PersonModel: PersonModel{
 				ID:      1,
+				Status:  "заняты",
 				Email:   "test1@test.ru",
 				Sex:     "m",
 				Birth:   testBirth,
@@ -87,14 +88,13 @@ var (
 				Surname: util.PtrString("Горбик"),
 				Phone:   util.PtrString("8(999)7654321"),
 			},
-			Account: AccountTable{
+			AccountModel: AccountModel{
 				ID:           1,
 				Joined:       testNow,
-				Status:       "заняты",
 				PremiumStart: &testNow,
 				PremiumEnd:   &testNow,
 			},
-			Likes: []LikeTable{
+			LikeModels: []LikeModel{
 				{
 					LikerID:   1,
 					LikeeID:   1,
@@ -106,7 +106,7 @@ var (
 					Timestamp: testNow,
 				},
 			},
-			Interests: []InterestTable{
+			InterestModels: []InterestModel{
 				{
 					AccountID: 1,
 					Name:      "компьютер",
@@ -120,10 +120,10 @@ var (
 					Name:      "фортепиано",
 				},
 			},
-			City: &CityTable{
+			CityModel: &CityModel{
 				Name: "Москва",
 			},
-			Country: &CountryTable{
+			CountryModel: &CountryModel{
 				Name: "Россия",
 			},
 		},
@@ -132,18 +132,18 @@ var (
 	badAccountTestcases = []testcaseAccount{}
 )
 
-func Test_AccountInputToTables_Success(t *testing.T) {
+func Test_AccountInputToModels_Success(t *testing.T) {
 	for _, testcase := range goodAccountTestcases {
 		if err := testcase.Input.Validate(); err != nil {
 			t.Error(err)
 			continue
 		}
 
-		assert.Equal(t, testcase.Account, testcase.Input.GetAccount())
-		assert.Equal(t, testcase.Person, testcase.Input.GetPerson())
-		assert.Equal(t, testcase.Interests, testcase.Input.GetInterests())
-		assert.Equal(t, testcase.Likes, testcase.Input.GetLikes())
-		assert.Equal(t, testcase.City, testcase.Input.GetCity())
-		assert.Equal(t, testcase.Country, testcase.Input.GetCountry())
+		assert.Equal(t, testcase.AccountModel, testcase.Input.AccountModel())
+		assert.Equal(t, testcase.PersonModel, testcase.Input.PersonModel(nil, nil))
+		assert.Equal(t, testcase.InterestModels, testcase.Input.InterestModels())
+		assert.Equal(t, testcase.LikeModels, testcase.Input.LikeModels())
+		assert.Equal(t, testcase.CityModel, testcase.Input.CityModel())
+		assert.Equal(t, testcase.CountryModel, testcase.Input.CountryModel())
 	}
 }
