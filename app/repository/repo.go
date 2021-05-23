@@ -17,10 +17,16 @@ var (
 )
 
 type Repository struct {
-	conn *pgxpool.Conn
+	conn *pgxpool.Pool
 }
 
-func (r *Repository) FilterAccounts(ctx context.Context, filter Filter) ([]domain.AccountOut, error) {
+func New(conn *pgxpool.Pool) *Repository {
+	return &Repository{
+		conn: conn,
+	}
+}
+
+func (r *Repository) FilterAccounts(ctx context.Context, filter Filter) (*domain.AccountsOut, error) {
 	rows, err := r.conn.Query(ctx, buildAccountSearchQuery(filter))
 	if err != nil {
 		return nil, err
@@ -68,7 +74,7 @@ func (r *Repository) FilterAccounts(ctx context.Context, filter Filter) ([]domai
 		accounts = append(accounts, acc)
 	}
 
-	return accounts, nil
+	return &domain.AccountsOut{Accounts: accounts}, nil
 }
 
 func (r *Repository) AddAccount(ctx context.Context, a domain.AccountInput) error {
@@ -102,6 +108,35 @@ func (r *Repository) AddAccount(ctx context.Context, a domain.AccountInput) erro
 	}
 
 	return tx.Commit(ctx)
+}
+
+func (r *Repository) UpdateAccount(ctx context.Context, a domain.AccountUpdate) error {
+	tx, err := r.conn.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
+	if err != nil {
+		return err
+	}
+
+	defer tx.Rollback(ctx)
+
+	cityID, err := r.tryInsertCity(ctx, a.CityModel(), tx)
+	if err != nil {
+		return err
+	}
+
+	countryID, err := r.tryInsertCountry(ctx, a.CountryModel(), tx)
+	if err != nil {
+		return err
+	}
+
+	if err = r.updateAccount(ctx, a, cityID, countryID, tx); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
+func (r *Repository) AddLikes(ctx context.Context, likes *domain.LikesInput) error {
+	return r.tryInsertLikes(ctx, likes.LikeModels(), nil)
 }
 
 func (r *Repository) insertAccount(ctx context.Context, a *domain.AccountModel, tx pgx.Tx) error {
@@ -190,31 +225,6 @@ func (r *Repository) tryInsertInterests(ctx context.Context, interests []domain.
 	return
 }
 
-func (r *Repository) UpdateAccount(ctx context.Context, a domain.AccountUpdate) error {
-	tx, err := r.conn.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
-	if err != nil {
-		return err
-	}
-
-	defer tx.Rollback(ctx)
-
-	cityID, err := r.tryInsertCity(ctx, a.CityModel(), tx)
-	if err != nil {
-		return err
-	}
-
-	countryID, err := r.tryInsertCountry(ctx, a.CountryModel(), tx)
-	if err != nil {
-		return err
-	}
-
-	if err = r.updateAccount(ctx, a, cityID, countryID, tx); err != nil {
-		return err
-	}
-
-	return tx.Commit(ctx)
-}
-
 func (r *Repository) updateAccount(ctx context.Context, a domain.AccountUpdate, cityID, countryID int32, tx pgx.Tx) error {
 	sql, values := buildAccountUpdateQuery(a, cityID, countryID)
 	result, err := tx.Exec(ctx, sql, values...)
@@ -227,8 +237,4 @@ func (r *Repository) updateAccount(ctx context.Context, a domain.AccountUpdate, 
 	}
 
 	return nil
-}
-
-func (r *Repository) AddLikes(ctx context.Context, likes *domain.LikesInput) error {
-	return r.tryInsertLikes(ctx, likes.LikeModels(), nil)
 }

@@ -1,15 +1,39 @@
 package app
 
 import (
+	"context"
+	"flag"
+	"fmt"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v4/pgxpool"
 
 	"accounts/app/controller"
+	"accounts/app/repository"
+	"accounts/app/service"
 )
 
 func Serve() error {
-	router := Router(&controller.Controller{})
+	connStr := flag.String("conn", "", "connection string")
+	flag.Parse()
+	if connStr == nil || *connStr == "" {
+		return fmt.Errorf("connection string is empty")
+	}
+
+	conn, err := pgxpool.Connect(context.Background(), *connStr)
+	if err != nil {
+		return err
+	}
+
+	router := Router(
+		controller.New(
+			service.New(
+				repository.New(conn),
+			),
+		),
+	)
+
 	return http.ListenAndServe("0.0.0.0:8888", router)
 }
 

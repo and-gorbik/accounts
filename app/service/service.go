@@ -21,6 +21,12 @@ type AccountService struct {
 	repo repo
 }
 
+func New(repo repo) *AccountService {
+	return &AccountService{
+		repo: repo,
+	}
+}
+
 func (s *AccountService) FilterAccounts(ctx context.Context, params url.Values) ([]byte, error) {
 	qps, err := ParseQueryParams(params, true)
 	if err != nil {

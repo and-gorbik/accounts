@@ -11,6 +11,12 @@ type Controller struct {
 	service accountService
 }
 
+func New(service accountService) *Controller {
+	return &Controller{
+		service: service,
+	}
+}
+
 func (c *Controller) FilterAccounts(w http.ResponseWriter, r *http.Request) {
 	body, err := c.service.FilterAccounts(r.Context(), r.URL.Query())
 	if err != nil {
