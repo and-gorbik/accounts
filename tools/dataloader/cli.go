@@ -99,7 +99,7 @@ func writeToDB(conn *sqlx.DB, accounts []Account) error {
 		return err
 	}
 
-	if err = writeAccountsAndPersons(conn, accounts, countries, cities); err != nil {
+	if err = writeAccounts(conn, accounts, countries, cities); err != nil {
 		return err
 	}
 
@@ -149,12 +149,10 @@ func writeCountriesAndCities(conn *sqlx.DB, accs []Account) (countries, cities m
 	return
 }
 
-func writeAccountsAndPersons(conn *sqlx.DB, accs []Account, countries, cities map[string]int32) error {
+func writeAccounts(conn *sqlx.DB, accs []Account, countries, cities map[string]int32) error {
 	accounts := make([]domain.AccountModel, 0, len(accs))
-	persons := make([]domain.PersonModel, 0, len(accs))
 
 	for _, acc := range accs {
-		accounts = append(accounts, newAccount(&acc))
 
 		var countryID, cityID *int32
 		if acc.Country != nil {
@@ -165,14 +163,21 @@ func writeAccountsAndPersons(conn *sqlx.DB, accs []Account, countries, cities ma
 			cityID = int32Ptr(cities[*acc.City])
 		}
 
-		persons = append(persons, newPerson(&acc, countryID, cityID))
+		accounts = append(accounts, newAccount(&acc, countryID, cityID))
 	}
 
-	queryAccountTotal := `INSERT INTO account(id, joined, prem_start, prem_end) VALUES %s;`
+	queryAccountTotal := `INSERT INTO account(id, email, sex, status, birth, name, surname, phone, country_id, city_id, joined, prem_start, prem_end) VALUES %s;`
 	queriesAccount := make([]string, 0, len(accounts))
 	for _, a := range accounts {
-		query := fmt.Sprintf(`(%d, %s, %s, %s)`,
-			a.ID,
+		query := fmt.Sprintf(
+			`(%d, '%s', '%s', '%s', %s, %s, %s, %s, %s, %s, %s, %s, %s)`,
+			a.ID, a.Email, a.Sex, a.Status,
+			nullableTimestamp(&a.Birth),
+			nullableString(a.Name),
+			nullableString(a.Surname),
+			nullableString(a.Phone),
+			nullableInt32(a.CountryID),
+			nullableInt32(a.CityID),
 			nullableTimestamp(&a.Joined),
 			nullableTimestamp(a.PremiumStart),
 			nullableTimestamp(a.PremiumEnd),
@@ -183,30 +188,6 @@ func writeAccountsAndPersons(conn *sqlx.DB, accs []Account, countries, cities ma
 
 	query := strings.Join(queriesAccount, ", ")
 	if _, err := conn.Exec(fmt.Sprintf(queryAccountTotal, query)); err != nil {
-		log.Println(query)
-		return err
-	}
-
-	queryPersonTotal := `INSERT INTO person(account_id, email, sex, status, birth, name, surname, phone, country_id, city_id) VALUES %s;`
-	queriesPerson := make([]string, 0, len(persons))
-	for _, p := range persons {
-		queriesPerson = append(
-			queriesPerson,
-			fmt.Sprintf(
-				`(%d, '%s', '%s', '%s', %s, %s, %s, %s, %s, %s)`,
-				p.ID, p.Email, p.Sex, p.Status,
-				nullableTimestamp(&p.Birth),
-				nullableString(p.Name),
-				nullableString(p.Surname),
-				nullableString(p.Phone),
-				nullableInt32(p.CountryID),
-				nullableInt32(p.CityID),
-			),
-		)
-	}
-
-	query = strings.Join(queriesPerson, ", ")
-	if _, err := conn.Exec(fmt.Sprintf(queryPersonTotal, query)); err != nil {
 		log.Println(query)
 		return err
 	}
@@ -246,35 +227,29 @@ func writeLikesAndInterests(conn *sqlx.DB, accs []Account) error {
 	return nil
 }
 
-func newAccount(acc *Account) domain.AccountModel {
-	a := domain.AccountModel{
-		ID:     acc.ID,
-		Joined: int64PtrToTimestamp(&acc.Joined),
-	}
-
-	if acc.Premium != nil {
-		start := int64PtrToTimestamp(&acc.Premium.Start)
-		a.PremiumStart = &start
-		end := int64PtrToTimestamp(&acc.Premium.End)
-		a.PremiumEnd = &end
-	}
-
-	return a
-}
-
-func newPerson(acc *Account, countryID, cityID *int32) domain.PersonModel {
-	return domain.PersonModel{
-		ID:        acc.ID,
-		Status:    acc.Status,
-		Email:     acc.Email,
-		Sex:       acc.Sex,
-		Birth:     int64PtrToTimestamp(&acc.Birth),
-		Name:      acc.Name,
-		Surname:   acc.Surname,
-		Phone:     acc.Phone,
+func newAccount(a *Account, countryID, cityID *int32) domain.AccountModel {
+	account := domain.AccountModel{
+		ID:        a.ID,
+		Status:    a.Status,
+		Email:     a.Email,
+		Sex:       a.Sex,
+		Birth:     int64PtrToTimestamp(&a.Birth),
+		Name:      a.Name,
+		Surname:   a.Surname,
+		Phone:     a.Phone,
 		CountryID: countryID,
 		CityID:    cityID,
+		Joined:    int64PtrToTimestamp(&a.Joined),
 	}
+
+	if a.Premium != nil {
+		start := int64PtrToTimestamp(&a.Premium.Start)
+		account.PremiumStart = &start
+		end := int64PtrToTimestamp(&a.Premium.End)
+		account.PremiumEnd = &end
+	}
+
+	return account
 }
 
 func newLikes(acc *Account) []domain.LikeModel {
