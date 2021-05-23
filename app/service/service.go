@@ -59,5 +59,5 @@ func (s *AccountService) AddLikes(ctx context.Context, body []byte) error {
 		return BusinessError{err}
 	}
 
-	return s.repo.AddLikes(ctx, likes)
+	return s.repo.AddLikes(ctx, &domain.LikesInput{Likes: likes})
 }

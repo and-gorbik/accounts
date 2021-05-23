@@ -3,27 +3,72 @@ package repository
 import (
 	"context"
 	"errors"
-	"strconv"
-	"strings"
 
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 
 	"accounts/domain"
-	"accounts/util"
 )
 
 var (
-	errNilModel    = errors.New("nil model (input model wasn't validated probably)")
-	errNotAffected = errors.New("not affected")
+	errNilModel     = errors.New("nil model (input model wasn't validated probably)")
+	errNotAffected  = errors.New("not affected")
+	errInvalidField = errors.New("invalid field")
 )
 
 type Repository struct {
 	conn *pgxpool.Conn
 }
 
-func (r *Repository) FilterAccounts(ctx context.Context, filter string) ([]domain.AccountOut, error) {
-	return nil, nil
+func (r *Repository) FilterAccounts(ctx context.Context, filter Filter) ([]domain.AccountOut, error) {
+	rows, err := r.conn.Query(ctx, buildAccountSearchQuery(filter))
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	var acc domain.AccountOut
+	scanFields := make([]interface{}, 0, len(filter.Fields))
+	for field := range filter.Fields {
+		switch field {
+		case "id":
+			scanFields = append(scanFields, &acc.ID)
+		case "email":
+			scanFields = append(scanFields, &acc.Email)
+		case "sex":
+			scanFields = append(scanFields, &acc.Sex)
+		case "status":
+			scanFields = append(scanFields, &acc.Status)
+		case "birth":
+			scanFields = append(scanFields, &acc.Birth)
+		case "fname":
+			scanFields = append(scanFields, &acc.Fname)
+		case "sname":
+			scanFields = append(scanFields, &acc.Sname)
+		case "phone":
+			scanFields = append(scanFields, &acc.Phone)
+		case "country":
+			scanFields = append(scanFields, &acc.Country)
+		case "city":
+			scanFields = append(scanFields, &acc.City)
+		case "premium":
+			scanFields = append(scanFields, &acc.Premium)
+		default:
+			return nil, errInvalidField
+		}
+	}
+
+	accounts := []domain.AccountOut{}
+	for rows.Next() {
+		if err := rows.Scan(scanFields...); err != nil {
+			return nil, err
+		}
+
+		accounts = append(accounts, acc)
+	}
+
+	return accounts, nil
 }
 
 func (r *Repository) AddAccount(ctx context.Context, a domain.AccountInput) error {
@@ -44,11 +89,7 @@ func (r *Repository) AddAccount(ctx context.Context, a domain.AccountInput) erro
 		return err
 	}
 
-	if err = r.insertAccount(ctx, a.AccountModel(), tx); err != nil {
-		return err
-	}
-
-	if err = r.insertPerson(ctx, a.PersonModel(&cityID, &countryID), tx); err != nil {
+	if err = r.insertAccount(ctx, a.AccountModel(&cityID, &countryID), tx); err != nil {
 		return err
 	}
 
@@ -70,8 +111,9 @@ func (r *Repository) insertAccount(ctx context.Context, a *domain.AccountModel, 
 
 	return tx.QueryRow(
 		ctx,
-		`INSERT INTO account(id, joined, prem_start, prem_end) VALUES ($1, $2, $3, $4) RETURNING id`,
-		a.ID, a.Joined, a.PremiumStart, a.PremiumEnd,
+		`INSERT INTO account(id, status, email, sex, birth, name, surname, phone, country_id, city_id, joined, prem_start, prem_end)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING account_id`,
+		a.ID, a.Status, a.Email, a.Sex, a.Birth, a.Name, a.Surname, a.Phone, a.CountryID, a.CityID, a.Joined, a.PremiumStart, a.PremiumEnd,
 	).Scan(&a.ID)
 }
 
@@ -99,19 +141,6 @@ func (r *Repository) tryInsertCountry(ctx context.Context, c *domain.CountryMode
 		c.Name,
 	).Scan(&id)
 	return
-}
-
-func (r *Repository) insertPerson(ctx context.Context, p *domain.PersonModel, tx pgx.Tx) error {
-	if p == nil {
-		return errNilModel
-	}
-
-	return tx.QueryRow(
-		ctx,
-		`INSERT INTO person(account_id, status, email, sex, birth, name, surname, phone, country_id, city_id)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING account_id`,
-		p.ID, p.Status, p.Email, p.Sex, p.Birth, p.Name, p.Surname, p.Phone, p.CountryID, p.CityID,
-	).Scan(&p.ID)
 }
 
 func (r *Repository) tryInsertLikes(ctx context.Context, likes []domain.LikeModel, tx pgx.Tx) (err error) {
@@ -179,41 +208,16 @@ func (r *Repository) UpdateAccount(ctx context.Context, a domain.AccountUpdate) 
 		return err
 	}
 
-	if err = r.updatePerson(ctx, a, cityID, countryID, tx); err != nil {
+	if err = r.updateAccount(ctx, a, cityID, countryID, tx); err != nil {
 		return err
 	}
 
 	return tx.Commit(ctx)
 }
 
-func (r *Repository) updatePerson(ctx context.Context, a domain.AccountUpdate, cityID, countryID int32, tx pgx.Tx) error {
-	fields := []string{}
-	values := []interface{}{}
-
-	if a.Email != nil {
-		fields = append(fields, "email=$"+strconv.Itoa(len(fields)+1))
-		values = append(values, string(*a.Email))
-	}
-	if a.Birth != nil {
-		fields = append(fields, "birth=$"+strconv.Itoa(len(fields)+1))
-		values = append(values, *util.TimestampToDatetime((*int64)(a.Birth)))
-	}
-	if a.Status != nil {
-		fields = append(fields, "status=$"+strconv.Itoa(len(fields)+1))
-		values = append(values, string(*a.Status))
-	}
-	fields = append(fields, "city_id=$"+strconv.Itoa(len(fields)+1))
-	values = append(values, cityID)
-	fields = append(fields, "country_id=$"+strconv.Itoa(len(fields)+1))
-	values = append(values, countryID)
-	values = append(values, a.ID)
-
-	var builder strings.Builder
-	builder.WriteString("UPDATE person SET ")
-	builder.WriteString(strings.Join(fields, ", "))
-	builder.WriteString(" WHERE id = $" + strconv.Itoa(len(fields)+1))
-
-	result, err := tx.Exec(ctx, builder.String(), values...)
+func (r *Repository) updateAccount(ctx context.Context, a domain.AccountUpdate, cityID, countryID int32, tx pgx.Tx) error {
+	sql, values := buildAccountUpdateQuery(a, cityID, countryID)
+	result, err := tx.Exec(ctx, sql, values...)
 	if err != nil {
 		return err
 	}

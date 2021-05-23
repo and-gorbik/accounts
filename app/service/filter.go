@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"strings"
 
+	"accounts/app/repository"
 	"accounts/util"
 )
 
@@ -12,13 +13,22 @@ var (
 	randScope = fmt.Sprintf("%%%d%%", rand.Int())
 )
 
-func BuildFilter(params map[string]QueryParam) string {
+// TODO: move to repository
+func BuildFilter(params map[string]QueryParam) repository.Filter {
 	filters := make([]string, 0, len(params))
+	fields := make(map[string]struct{}, len(params)-1)
 	for _, param := range params {
 		filters = append(filters, buildFilter(param))
+		if param.Field != qpLimit {
+			fields[param.Field] = struct{}{}
+		}
 	}
 
-	return strings.Join(filters, " AND ")
+	return repository.Filter{
+		SQL:    strings.Join(filters, " AND "),
+		Limit:  params[qpLimit].StrValue,
+		Fields: fields,
+	}
 }
 
 func buildFilter(param QueryParam) string {

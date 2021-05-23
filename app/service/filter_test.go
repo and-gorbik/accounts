@@ -152,6 +152,6 @@ func Test_BuildFilter(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		assert.Equal(t, tc.Expected, BuildFilter(tc.Params))
+		assert.Equal(t, tc.Expected, BuildFilter(tc.Params).SQL)
 	}
 }
