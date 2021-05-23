@@ -66,12 +66,12 @@ func (a *AccountInput) Validate() error {
 	)
 }
 
-func (a *AccountInput) PersonModel(cityID, countryID *int32) *PersonModel {
+func (a *AccountInput) AccountModel(cityID, countryID *int32) *AccountModel {
 	if !a.validated {
 		return nil
 	}
 
-	return &PersonModel{
+	table := &AccountModel{
 		ID:        int32(*a.ID),
 		Status:    string(*a.Status),
 		Email:     string(*a.Email),
@@ -82,17 +82,7 @@ func (a *AccountInput) PersonModel(cityID, countryID *int32) *PersonModel {
 		Phone:     (*string)(a.Phone),
 		CountryID: cityID,
 		CityID:    countryID,
-	}
-}
-
-func (a *AccountInput) AccountModel() *AccountModel {
-	if !a.validated {
-		return nil
-	}
-
-	table := &AccountModel{
-		ID:     int32(*a.ID),
-		Joined: *util.TimestampToDatetime((*int64)(a.Joined)),
+		Joined:    *util.TimestampToDatetime((*int64)(a.Joined)),
 	}
 
 	if a.Premium != nil {
@@ -210,12 +200,12 @@ func (a *AccountUpdate) Validate() error {
 	return checkValidators(&a.ID, a.Email, a.Birth, a.City, a.Country, a.Status)
 }
 
-func (a *AccountUpdate) PersonModel(cityID, countryID *int32) *PersonModel {
+func (a *AccountUpdate) AccountModel(cityID, countryID *int32) *AccountModel {
 	if !a.validated {
 		return nil
 	}
 
-	return &PersonModel{
+	return &AccountModel{
 		ID:        int32(a.ID),
 		Status:    string(*a.Status),
 		Email:     string(*a.Email),

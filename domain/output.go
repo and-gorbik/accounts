@@ -1,5 +1,9 @@
 package domain
 
+type AccountsOut struct {
+	Accounts []AccountOut `json:"accounts"`
+}
+
 type AccountOut struct {
 	ID      int32   `json:"id"`
 	Email   string  `json:"email"`

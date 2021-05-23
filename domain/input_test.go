@@ -12,7 +12,6 @@ import (
 type testcaseAccount struct {
 	Input AccountInput
 
-	PersonModel    PersonModel
 	AccountModel   AccountModel
 	LikeModels     []LikeModel
 	InterestModels []InterestModel
@@ -33,15 +32,12 @@ var (
 				Joined: (*FieldJoined)(util.PtrInt64(testNow.Unix())),
 				Status: (*FieldStatus)(util.PtrString("свободны")),
 			},
-			PersonModel: PersonModel{
+			AccountModel: AccountModel{
 				ID:     1,
 				Status: "свободны",
 				Email:  "test1@test.ru",
 				Sex:    "m",
 				Birth:  testBirth,
-			},
-			AccountModel: AccountModel{
-				ID:     1,
 				Joined: testNow,
 			},
 		},
@@ -78,18 +74,15 @@ var (
 					},
 				},
 			},
-			PersonModel: PersonModel{
-				ID:      1,
-				Status:  "заняты",
-				Email:   "test1@test.ru",
-				Sex:     "m",
-				Birth:   testBirth,
-				Name:    util.PtrString("Андрей"),
-				Surname: util.PtrString("Горбик"),
-				Phone:   util.PtrString("8(999)7654321"),
-			},
 			AccountModel: AccountModel{
 				ID:           1,
+				Status:       "заняты",
+				Email:        "test1@test.ru",
+				Sex:          "m",
+				Birth:        testBirth,
+				Name:         util.PtrString("Андрей"),
+				Surname:      util.PtrString("Горбик"),
+				Phone:        util.PtrString("8(999)7654321"),
 				Joined:       testNow,
 				PremiumStart: &testNow,
 				PremiumEnd:   &testNow,
@@ -139,8 +132,7 @@ func Test_AccountInputToModels_Success(t *testing.T) {
 			continue
 		}
 
-		assert.Equal(t, testcase.AccountModel, *testcase.Input.AccountModel())
-		assert.Equal(t, testcase.PersonModel, *testcase.Input.PersonModel(nil, nil))
+		assert.Equal(t, testcase.AccountModel, *testcase.Input.AccountModel(nil, nil))
 		assert.Equal(t, testcase.InterestModels, testcase.Input.InterestModels())
 		assert.Equal(t, testcase.LikeModels, testcase.Input.LikeModels())
 		assert.Equal(t, testcase.CityModel, testcase.Input.CityModel())
