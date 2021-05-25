@@ -36,12 +36,12 @@ func (r *Repository) FilterAccounts(ctx context.Context, filter Filter) (*domain
 
 	var acc domain.AccountOut
 	scanFields := make([]interface{}, 0, len(filter.Fields))
+	scanFields = append(scanFields, &acc.ID)
+	scanFields = append(scanFields, &acc.Email)
 	for field := range filter.Fields {
 		switch field {
-		case "id":
-			scanFields = append(scanFields, &acc.ID)
-		case "email":
-			scanFields = append(scanFields, &acc.Email)
+		case "id", "email":
+			continue
 		case "sex":
 			scanFields = append(scanFields, &acc.Sex)
 		case "status":

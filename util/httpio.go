@@ -2,6 +2,7 @@ package util
 
 import (
 	"io/ioutil"
+	"log"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -17,11 +18,8 @@ func ReadURLParam(r *http.Request, name string) string {
 }
 
 func WriteErrorResponse(w http.ResponseWriter, err error, status int) {
-	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	if err != nil {
-		w.Write([]byte(err.Error()))
-	}
+	log.Println(err)
 }
 
 func WriteSuccessResponse(w http.ResponseWriter, body []byte, status int) {

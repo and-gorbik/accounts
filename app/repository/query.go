@@ -16,13 +16,11 @@ type Filter struct {
 
 func buildAccountSearchQuery(filter Filter) string {
 	joins := make([]string, 0)
-	resultFields := make([]string, 0)
+	resultFields := []string{"account.id", "email"}
 
 	for field := range filter.Fields {
 		switch field {
-		case "id":
-			resultFields = append(resultFields, "account.id")
-		case "email", "sex", "status", "birth", "fname", "sname", "phone":
+		case "sex", "status", "birth", "fname", "sname", "phone":
 			resultFields = append(resultFields, field)
 		case "city":
 			resultFields = append(resultFields, "city.name")
@@ -42,8 +40,10 @@ func buildAccountSearchQuery(filter Filter) string {
 	b.WriteString(strings.Join(resultFields, ", "))
 	b.WriteString(" FROM account ")
 	b.WriteString(strings.Join(joins, " "))
-	b.WriteString(" WHERE ")
-	b.WriteString(filter.SQL)
+	if filter.SQL != "" {
+		b.WriteString(" WHERE ")
+		b.WriteString(filter.SQL)
+	}
 	b.WriteString(" ORDER BY account.id DESC LIMIT ")
 	b.WriteString(filter.Limit)
 
