@@ -33,8 +33,7 @@ var (
 )
 
 var (
-	regexpEmail = regexp.MustCompile(`^.*@.*$`)
-	regexpPhone = regexp.MustCompile(`^.*$`)
+	regexpPhone = regexp.MustCompile(`\+?^\d\(\d{3}\)\d+$`)
 )
 
 func statusIsValid(s string) bool {

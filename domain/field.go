@@ -2,6 +2,7 @@ package domain
 
 import (
 	"errors"
+	"net/mail"
 
 	"accounts/util"
 )
@@ -31,7 +32,11 @@ func (field *FieldEmail) Validate() error {
 		return nil
 	}
 
-	return util.ValidateString(string(*field), maxLenEmail, nil, regexpEmail)
+	if _, err := mail.ParseAddress(string(*field)); err != nil {
+		return err
+	}
+
+	return util.ValidateString(string(*field), maxLenEmail, nil, nil)
 }
 
 type FieldInterest string
