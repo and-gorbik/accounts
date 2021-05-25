@@ -35,7 +35,7 @@ func (s *AccountService) FilterAccounts(ctx context.Context, params url.Values) 
 
 	accounts, err := s.repo.FilterAccounts(ctx, BuildFilter(qps))
 	if err != nil {
-		return nil, err
+		return nil, BusinessError{err}
 	}
 
 	return jsoniter.Marshal(accounts)
@@ -47,7 +47,11 @@ func (s *AccountService) AddAccount(ctx context.Context, body []byte) error {
 		return BusinessError{err}
 	}
 
-	return s.repo.AddAccount(ctx, account)
+	if err := s.repo.AddAccount(ctx, account); err != nil {
+		return BusinessError{err}
+	}
+
+	return nil
 }
 
 func (s *AccountService) UpdateAccount(ctx context.Context, body []byte) error {
@@ -56,7 +60,11 @@ func (s *AccountService) UpdateAccount(ctx context.Context, body []byte) error {
 		return BusinessError{err}
 	}
 
-	return s.repo.UpdateAccount(ctx, account)
+	if err := s.repo.UpdateAccount(ctx, account); err != nil {
+		return BusinessError{err}
+	}
+
+	return nil
 }
 
 func (s *AccountService) AddLikes(ctx context.Context, body []byte) error {
@@ -65,5 +73,9 @@ func (s *AccountService) AddLikes(ctx context.Context, body []byte) error {
 		return BusinessError{err}
 	}
 
-	return s.repo.AddLikes(ctx, &domain.LikesInput{Likes: likes})
+	if err := s.repo.AddLikes(ctx, &domain.LikesInput{Likes: likes}); err != nil {
+		return BusinessError{err}
+	}
+
+	return nil
 }

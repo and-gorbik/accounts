@@ -17,6 +17,12 @@ type QueryParam struct {
 }
 
 const (
+	typeInt = iota
+	typeStr
+	typeTimestamp
+)
+
+const (
 	opEq       = "eq"
 	opLt       = "lt"
 	opGt       = "gt"
@@ -29,6 +35,8 @@ const (
 	opYear     = "year"
 	opContains = "contains"
 	opNow      = "now"
+
+	noOp = ""
 )
 
 const (
@@ -44,7 +52,6 @@ const (
 	qpInterests = "interests"
 	qpLikes     = "likes"
 	qpPremium   = "premium"
-	qpJoined    = "joined"
 
 	qpLimit   = "limit"
 	qpQueryID = "query_id"
@@ -55,7 +62,7 @@ var (
 )
 
 var (
-	qpWithOpRules = map[string]map[string]struct{}{
+	qpRules = map[string]map[string]struct{}{
 		qpSex:       {opEq: yes},
 		qpEmail:     {opDomain: yes, opGt: yes, opLt: yes},
 		qpStatus:    {opEq: yes, opNeq: yes},
@@ -70,37 +77,19 @@ var (
 		qpPremium:   {opNow: yes, opNull: yes},
 	}
 
-	qpRules = map[string]struct{}{
-		qpEmail:     yes,
-		qpSex:       yes,
-		qpBirth:     yes,
-		qpFirstname: yes,
-		qpSurname:   yes,
-		qpPhone:     yes,
-		qpCountry:   yes,
-		qpCity:      yes,
-		qpJoined:    yes,
-		qpStatus:    yes,
-		qpInterests: yes,
-		qpPremium:   yes,
-		qpLikes:     yes,
-	}
-
-	qpTypes = map[string]int{
-		qpSex:       util.TypeStr,
-		qpEmail:     util.TypeStr,
-		qpStatus:    util.TypeStr,
-		qpFirstname: util.TypeStr,
-		qpSurname:   util.TypeStr,
-		qpPhone:     util.TypeStr,
-		qpCountry:   util.TypeStr,
-		qpCity:      util.TypeStr,
-		qpBirth:     util.TypeTimestamp,
-		qpInterests: util.TypeStrArray,
-		qpLikes:     util.TypeIntArray,
-		qpPremium:   util.TypeTimestamp,
-		qpJoined:    util.TypeTimestamp,
-		qpLimit:     util.TypeInt,
+	qpTypes = map[string]map[string]int{
+		qpSex:       {noOp: typeStr, opEq: typeStr},
+		qpEmail:     {noOp: typeStr, opDomain: typeStr, opGt: typeStr, opLt: typeStr},
+		qpStatus:    {noOp: typeStr, opEq: typeStr, opNeq: typeStr},
+		qpFirstname: {noOp: typeStr, opEq: typeStr, opAny: typeStr, opNull: typeInt},
+		qpSurname:   {noOp: typeStr, opEq: typeStr, opStarts: typeStr, opNull: typeInt},
+		qpPhone:     {noOp: typeStr, opCode: typeInt, opNull: typeInt},
+		qpCountry:   {noOp: typeStr, opEq: typeStr, opNull: typeInt},
+		qpCity:      {noOp: typeStr, opEq: typeStr, opAny: typeInt, opNull: typeInt},
+		qpBirth:     {noOp: typeTimestamp, opLt: typeTimestamp, opGt: typeTimestamp, opYear: typeInt},
+		qpInterests: {noOp: typeStr, opContains: typeStr, opAny: typeStr},
+		qpLikes:     {noOp: typeInt, opContains: typeInt},
+		qpPremium:   {noOp: typeTimestamp, opNow: typeInt, opNull: typeInt},
 	}
 )
 
@@ -129,12 +118,13 @@ func ParseQueryParams(qps url.Values, withOp bool) (map[string]QueryParam, error
 			continue
 		}
 
+		// TODO: pass values []string directly
 		qp, err := parseQueryParam(param, strings.Join(values, ","), withOp)
 		if err != nil {
 			return nil, err
 		}
 
-		if err := validateValues(qp.Field, values); err != nil {
+		if err := validateValues(qp.Field, qp.Op, values); err != nil {
 			return nil, err
 		}
 
@@ -152,7 +142,7 @@ func parseQueryParam(param string, value string, withOp bool) (qp QueryParam, er
 			return
 		}
 
-		if _, ok := qpWithOpRules[tokens[0]][tokens[1]]; !ok {
+		if _, ok := qpRules[tokens[0]][tokens[1]]; !ok {
 			err = errInvalidParam
 			return
 		}
@@ -168,8 +158,12 @@ func parseQueryParam(param string, value string, withOp bool) (qp QueryParam, er
 		return
 	}
 
+	var op string
+	if qp.Op == nil {
+		op = noOp
+	}
+	qp.Type = qpTypes[param][op]
 	qp.StrValue = value
-	qp.Type = qpTypes[param]
 
 	return
 }
@@ -189,8 +183,9 @@ func parseLimit(qps url.Values) (QueryParam, error) {
 	}, nil
 }
 
-func validateValues(param string, values []string) error {
-	if len(values) < 1 {
+// TODO: refact to make it more readable
+func validateValues(param string, op *string, values []string) error {
+	if len(values) == 0 {
 		return nil
 	}
 
@@ -198,20 +193,57 @@ func validateValues(param string, values []string) error {
 	case qpSex:
 		return (*domain.FieldSex)(&values[0]).Validate()
 	case qpEmail:
-		return (*domain.FieldEmail)(&values[0]).Validate()
+		if op == nil {
+			return (*domain.FieldEmail)(&values[0]).Validate()
+		}
 	case qpStatus:
 		return (*domain.FieldStatus)(&values[0]).Validate()
 	case qpFirstname:
-		return (*domain.FieldFirstname)(&values[0]).Validate()
+		if op == nil {
+			return (*domain.FieldFirstname)(&values[0]).Validate()
+		}
+		if *op == opNull {
+			return validateBoolValue(values[0])
+		}
+		for _, val := range values {
+			if err := (*domain.FieldFirstname)(&val).Validate(); err != nil {
+				return err
+			}
+		}
 	case qpSurname:
-		return (*domain.FieldSurname)(&values[0]).Validate()
+		if op == nil || (op != nil && *op == opEq) {
+			return (*domain.FieldSurname)(&values[0]).Validate()
+		}
+		if op != nil && *op == opNull {
+			return validateBoolValue(values[0])
+		}
 	case qpPhone:
-		return (*domain.FieldPhone)(&values[0]).Validate()
+		if op == nil {
+			return (*domain.FieldPhone)(&values[0]).Validate()
+		}
+		if *op == opNull {
+			return validateBoolValue(values[0])
+		}
 	case qpCountry:
+		if op != nil && *op == opNull {
+			return validateBoolValue(values[0])
+		}
 		return (*domain.FieldCountry)(&values[0]).Validate()
 	case qpCity:
-		return (*domain.FieldCity)(&values[0]).Validate()
+		if op != nil && *op == opNull {
+			return validateBoolValue(values[0])
+		}
+		for _, val := range values {
+			if err := (*domain.FieldCity)(&val).Validate(); err != nil {
+				return err
+			}
+		}
 	case qpBirth:
+		if op != nil && *op == opYear {
+			if _, err := util.ParseInt(values[0]); err != nil {
+				return err
+			}
+		}
 		ts, err := util.ParseTimestamp(values[0])
 		if err != nil {
 			return err
@@ -219,13 +251,10 @@ func validateValues(param string, values []string) error {
 
 		return (*domain.FieldBirth)(&ts).Validate()
 	case qpPremium:
-		ts, err := util.ParseTimestamp(values[0])
-		if err != nil {
-			return err
+		if op != nil {
+			return validateBoolValue(values[0])
 		}
 
-		return (*domain.FieldPremium)(&ts).Validate()
-	case qpJoined:
 		ts, err := util.ParseTimestamp(values[0])
 		if err != nil {
 			return err
@@ -260,6 +289,19 @@ func validateValues(param string, values []string) error {
 			return err
 		}
 	default:
+	}
+
+	return nil
+}
+
+func validateBoolValue(val string) error {
+	intVal, err := util.ParseInt(val)
+	if err != nil {
+		return err
+	}
+
+	if intVal != 0 && intVal != 1 {
+		return errInvalidValue
 	}
 
 	return nil

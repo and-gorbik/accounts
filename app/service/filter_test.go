@@ -19,7 +19,7 @@ func Test_BuildFilter(t *testing.T) {
 		{
 			Params: map[string]QueryParam{
 				"sex": {
-					Type:     util.TypeStr,
+					Type:     typeStr,
 					Field:    "sex",
 					StrValue: "m",
 					Op:       util.PtrString(opEq),
@@ -30,7 +30,7 @@ func Test_BuildFilter(t *testing.T) {
 		{
 			Params: map[string]QueryParam{
 				"email": {
-					Type:     util.TypeStr,
+					Type:     typeStr,
 					Field:    "email",
 					StrValue: "test@test.ru",
 					Op:       util.PtrString(opLt),
@@ -41,7 +41,7 @@ func Test_BuildFilter(t *testing.T) {
 		{
 			Params: map[string]QueryParam{
 				"email": {
-					Type:     util.TypeStr,
+					Type:     typeStr,
 					Field:    "email",
 					StrValue: "test.ru",
 					Op:       util.PtrString(opDomain),
@@ -52,7 +52,7 @@ func Test_BuildFilter(t *testing.T) {
 		{
 			Params: map[string]QueryParam{
 				"birth": {
-					Type:     util.TypeTimestamp,
+					Type:     typeTimestamp,
 					Field:    "birth",
 					StrValue: "1485724260",
 					Op:       util.PtrString(opGt),
@@ -63,7 +63,7 @@ func Test_BuildFilter(t *testing.T) {
 		{
 			Params: map[string]QueryParam{
 				"status": {
-					Type:     util.TypeStr,
+					Type:     typeStr,
 					Field:    "status",
 					StrValue: "заняты",
 					Op:       util.PtrString(opNeq),
@@ -74,7 +74,7 @@ func Test_BuildFilter(t *testing.T) {
 		{
 			Params: map[string]QueryParam{
 				"fname": {
-					Type:     util.TypeInt,
+					Type:     typeInt,
 					Field:    "fname",
 					StrValue: "1",
 					Op:       util.PtrString(opNull),
@@ -85,7 +85,7 @@ func Test_BuildFilter(t *testing.T) {
 		{
 			Params: map[string]QueryParam{
 				"sname": {
-					Type:     util.TypeInt,
+					Type:     typeInt,
 					Field:    "sname",
 					StrValue: "0",
 					Op:       util.PtrString(opNull),
@@ -96,7 +96,7 @@ func Test_BuildFilter(t *testing.T) {
 		{
 			Params: map[string]QueryParam{
 				"sname": {
-					Type:     util.TypeStr,
+					Type:     typeStr,
 					Field:    "sname",
 					StrValue: "Ан",
 					Op:       util.PtrString(opStarts),
@@ -107,7 +107,7 @@ func Test_BuildFilter(t *testing.T) {
 		{
 			Params: map[string]QueryParam{
 				"phone": {
-					Type:     util.TypeInt,
+					Type:     typeInt,
 					Field:    "phone",
 					StrValue: "985",
 					Op:       util.PtrString(opCode),
@@ -118,7 +118,7 @@ func Test_BuildFilter(t *testing.T) {
 		{
 			Params: map[string]QueryParam{
 				"phone": {
-					Type:     util.TypeInt,
+					Type:     typeInt,
 					Field:    "phone",
 					StrValue: "985",
 					Op:       util.PtrString(opCode),
@@ -129,7 +129,7 @@ func Test_BuildFilter(t *testing.T) {
 		{
 			Params: map[string]QueryParam{
 				"city": {
-					Type:     util.TypeStrArray,
+					Type:     typeStr,
 					Field:    "city",
 					StrValue: "Москва,Питер,Новосибирск",
 					Op:       util.PtrString(opAny),
@@ -140,7 +140,7 @@ func Test_BuildFilter(t *testing.T) {
 		{
 			Params: map[string]QueryParam{
 				"likes": {
-					Type:     util.TypeIntArray,
+					Type:     typeInt,
 					Field:    "likes",
 					StrValue: "1,2,3",
 					Op:       util.PtrString(opContains),
@@ -148,7 +148,18 @@ func Test_BuildFilter(t *testing.T) {
 			},
 			Expected: "likes = ALL (1, 2, 3)",
 		},
-		// TODO: test opNow и opYear
+		{
+			Params: map[string]QueryParam{
+				"premium": {
+					Type:     typeInt,
+					Field:    "premium",
+					StrValue: "1",
+					Op:       util.PtrString(opNow),
+				},
+			},
+			Expected: fmt.Sprintf("prem_start <= '%s' AND prem_end >= '%s'", Now, Now),
+		},
+		// TODO: test opYear
 	}
 
 	for _, tc := range testcases {

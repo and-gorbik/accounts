@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 	"strings"
+	"time"
 
 	"accounts/app/repository"
 	"accounts/util"
@@ -11,10 +12,14 @@ import (
 
 var (
 	randScope = fmt.Sprintf("%%%d%%", rand.Int())
+	Now       = time.Now().Format((TimeLayout))
 )
 
 // TODO: move to repository
 func BuildFilter(params map[string]QueryParam) repository.Filter {
+	limit := params[qpLimit].StrValue
+	delete(params, qpLimit)
+
 	filters := make([]string, 0, len(params))
 	fields := make(map[string]struct{}, len(params)-1)
 	for _, param := range params {
@@ -26,7 +31,7 @@ func BuildFilter(params map[string]QueryParam) repository.Filter {
 
 	return repository.Filter{
 		SQL:    strings.Join(filters, " AND "),
-		Limit:  params[qpLimit].StrValue,
+		Limit:  limit,
 		Fields: fields,
 	}
 }
@@ -52,9 +57,9 @@ func buildFilter(param QueryParam) string {
 		return buildOpAny(param)
 	case opContains:
 		return buildOpContains(param)
-	case opYear:
-		// TODO
 	case opNow:
+		return buildOpNow()
+	case opYear:
 		// TODO
 	}
 
@@ -99,22 +104,15 @@ func buildOpAny(p QueryParam) string {
 func buildOpOverArray(p QueryParam, sqlOp string) string {
 	values := strings.Split(p.StrValue, ",")
 
-	var itemType int
-	if p.Type == util.TypeStrArray {
-		itemType = util.TypeStr
-	} else {
-		itemType = util.TypeInt
-	}
-
 	var b strings.Builder
 	b.WriteString(p.Field)
 	b.WriteString(" = ")
 	b.WriteString(sqlOp)
 	b.WriteString(" (")
-	b.WriteString(buildValue(values[0], itemType))
+	b.WriteString(buildValue(values[0], p.Type))
 	for i := 1; i < len(values); i++ {
 		b.WriteString(", ")
-		b.WriteString(buildValue(values[i], itemType))
+		b.WriteString(buildValue(values[i], p.Type))
 	}
 
 	b.WriteByte(')')
@@ -123,11 +121,11 @@ func buildOpOverArray(p QueryParam, sqlOp string) string {
 
 func buildValue(value string, typ int) string {
 	switch typ {
-	case util.TypeStr:
+	case typeStr:
 		return escapeString(value)
-	case util.TypeTimestamp:
+	case typeTimestamp:
 		ts, _ := util.ParseTimestamp(value)
-		return fmt.Sprintf("'%s'", util.TimestampToDatetime(&ts).Format(TimeLayout))
+		return wrapDatetime(util.TimestampToDatetime(&ts).Format(TimeLayout))
 	default:
 	}
 
@@ -139,6 +137,14 @@ func escapeString(s string) string {
 	b.WriteString(randScope)
 	b.WriteString(s)
 	b.WriteString(randScope)
+	return b.String()
+}
+
+func wrapDatetime(dt string) string {
+	var b strings.Builder
+	b.WriteString("'")
+	b.WriteString(dt)
+	b.WriteString("'")
 	return b.String()
 }
 
@@ -154,5 +160,14 @@ func buildOpLike(field string, values ...string) string {
 
 	b.WriteString(randScope)
 
+	return b.String()
+}
+
+func buildOpNow() string {
+	var b strings.Builder
+	b.WriteString("prem_start <= ")
+	b.WriteString(wrapDatetime(Now))
+	b.WriteString(" AND prem_end >= ")
+	b.WriteString(wrapDatetime(Now))
 	return b.String()
 }
