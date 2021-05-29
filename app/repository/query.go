@@ -1,81 +1,142 @@
 package repository
 
 import (
-	"strconv"
+	"fmt"
 	"strings"
+
+	"github.com/Masterminds/squirrel"
 
 	"accounts/domain"
 	"accounts/util"
 )
 
-type Filter struct {
-	Fields map[string]struct{}
-	Limit  string
-	SQL    string
-}
+const (
+	TableAccount  = "account"
+	TableLike     = "likes"
+	TableInterest = "interest"
+	TableCity     = "city"
+	TableCountry  = "country"
 
-func buildAccountSearchQuery(filter Filter) string {
-	joins := make([]string, 0)
-	resultFields := []string{"account.id", "email"}
+	AccountID         = "account.id"
+	AccountStatus     = "account.status"
+	AccountEmail      = "account.email"
+	AccountSex        = "account.sex"
+	AccountBirth      = "account.birth"
+	AccountJoined     = "account.joined"
+	AccountFirstname  = "account.name"
+	AccountSurname    = "account.surname"
+	AccountPhone      = "account.phone"
+	AccountCountryID  = "account.country_id"
+	AccountCityID     = "account.city_id"
+	AccountPremStart  = "account.prem_start"
+	AccountPremEnd    = "account.prem_end"
+	LikesLikerID      = "likes.liker_id"
+	LikesLikeeID      = "likes.likee_id"
+	LikesTimestamp    = "likes.ts"
+	InterestAccountID = "interest.account_id"
+	InterestName      = "interest.name"
+	CityID            = "city.id"
+	CityName          = "city.name"
+	CountryID         = "country.id"
+	CountryName       = "country.name"
+)
 
-	for field := range filter.Fields {
-		switch field {
-		case "sex", "status", "birth", "fname", "sname", "phone":
-			resultFields = append(resultFields, field)
-		case "city":
-			resultFields = append(resultFields, "city.name")
-			joins = append(joins, "JOIN city ON city.id = account.city_id")
-		case "country":
-			resultFields = append(resultFields, "country.name")
-			joins = append(joins, "JOIN country ON country.id = account.country_id")
-		case "likes":
-			joins = append(joins, "JOIN like ON like.liker_id = account.id")
-		case "interests":
-			joins = append(joins, "JOIN interest ON interest.account_id = account.id")
+func buildAccountSearchQuery(f *Filter) (string, []interface{}, error) {
+	where, params, err := f.Build()
+	if err != nil {
+		return "", nil, err
+	}
+
+	q := squirrel.Select(AccountID, AccountEmail).
+		From(TableAccount).
+		Where(where, params...).
+		OrderBy(AccountID + " DESC")
+
+	for column := range f.Columns() {
+		switch column {
+		case AccountSex, AccountStatus, AccountBirth, AccountPhone, AccountFirstname, AccountSurname:
+			q.Column(column)
+		case CityName:
+			q.Column(column).Join(join(TableCity, CityID, AccountCityID))
+		case CountryName:
+			q.Column(column).Join(join(TableCountry, CountryID, AccountCountryID))
+		case LikesLikerID:
+			q.Join(join(TableLike, LikesLikerID, AccountID))
+		case InterestName:
+			q.Join(join(TableInterest, InterestAccountID, AccountID))
 		}
 	}
 
-	var b strings.Builder
-	b.WriteString("SELECT ")
-	b.WriteString(strings.Join(resultFields, ", "))
-	b.WriteString(" FROM account ")
-	b.WriteString(strings.Join(joins, " "))
-	if filter.SQL != "" {
-		b.WriteString(" WHERE ")
-		b.WriteString(filter.SQL)
+	if f.Limit != 0 {
+		q.Limit(uint64(f.Limit))
 	}
-	b.WriteString(" ORDER BY account.id DESC LIMIT ")
-	b.WriteString(filter.Limit)
 
-	return b.String()
+	return q.PlaceholderFormat(squirrel.Dollar).ToSql()
 }
 
-func buildAccountUpdateQuery(a domain.AccountUpdate, cityID, countryID int32) (string, []interface{}) {
-	fields := []string{}
-	values := []interface{}{}
+func buildAccountUpdateQuery(a domain.AccountUpdate, cityID, countryID int32) (string, []interface{}, error) {
+	setMap := make(map[string]interface{})
+	setMap[AccountCityID] = cityID
+	setMap[AccountCountryID] = countryID
 
 	if a.Email != nil {
-		fields = append(fields, "email = $"+strconv.Itoa(len(fields)+1))
-		values = append(values, string(*a.Email))
+		setMap[AccountEmail] = a.Email
 	}
 	if a.Birth != nil {
-		fields = append(fields, "birth = $"+strconv.Itoa(len(fields)+1))
-		values = append(values, *util.TimestampToDatetime((*int64)(a.Birth)))
+		setMap[AccountBirth] = util.TimestampToDatetime((*int64)(a.Birth))
 	}
 	if a.Status != nil {
-		fields = append(fields, "status = $"+strconv.Itoa(len(fields)+1))
-		values = append(values, string(*a.Status))
+		setMap[AccountStatus] = util.TimestampToDatetime((*int64)(a.Birth))
 	}
-	fields = append(fields, "city_id = $"+strconv.Itoa(len(fields)+1))
-	values = append(values, cityID)
-	fields = append(fields, "country_id = $"+strconv.Itoa(len(fields)+1))
-	values = append(values, countryID)
-	values = append(values, a.ID)
 
-	var builder strings.Builder
-	builder.WriteString("UPDATE person SET ")
-	builder.WriteString(strings.Join(fields, ", "))
-	builder.WriteString(" WHERE id = $" + strconv.Itoa(len(fields)+1))
+	return squirrel.Update(TableAccount).
+		SetMap(setMap).
+		Where(squirrel.Eq{AccountID: a.ID}).
+		PlaceholderFormat(squirrel.Dollar).
+		ToSql()
+}
 
-	return builder.String(), values
+func buildAccountInsertQuery(a domain.AccountModel) (string, []interface{}, error) {
+	return squirrel.Insert(TableAccount).
+		Columns(AccountID, AccountStatus, AccountEmail,
+			AccountSex, AccountBirth, AccountFirstname,
+			AccountSurname, AccountPhone, AccountCountryID,
+			AccountCityID, AccountJoined, AccountPremStart, AccountPremEnd).
+		Values(a.ID, a.Status, a.Email, a.Sex, a.Birth, a.Name, a.Surname,
+			a.Phone, a.CountryID, a.CityID, a.Joined, a.PremiumStart, a.PremiumEnd).
+		Suffix(returning(AccountID)).
+		PlaceholderFormat(squirrel.Dollar).
+		ToSql()
+}
+
+func buildCityInsertQuery(c domain.CityModel) (string, []interface{}, error) {
+	return squirrel.Insert(TableCity).
+		Columns(CityName).
+		Values(c.Name).
+		Suffix(onConflictDoNothing(CityName)).
+		Suffix(returning(CityID)).
+		PlaceholderFormat(squirrel.Dollar).
+		ToSql()
+}
+
+func buildCountryInsertQuery(c domain.CountryModel) (string, []interface{}, error) {
+	return squirrel.Insert(TableCountry).
+		Columns(CountryName).
+		Values(c.Name).
+		Suffix(onConflictDoNothing(CountryName)).
+		Suffix(returning(CountryID)).
+		PlaceholderFormat(squirrel.Dollar).
+		ToSql()
+}
+
+func join(table, left, right string) string {
+	return fmt.Sprintf("JOIN %s ON %s = %s", table, left, right)
+}
+
+func returning(columns ...string) string {
+	return "RETURNING " + strings.Join(columns, ",")
+}
+
+func onConflictDoNothing(column string) string {
+	return fmt.Sprintf("ON CONFLICT(%s) DO NOTHING", column)
 }

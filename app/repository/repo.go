@@ -26,8 +26,13 @@ func New(conn *pgxpool.Pool) *Repository {
 	}
 }
 
-func (r *Repository) FilterAccounts(ctx context.Context, filter Filter) (*domain.AccountsOut, error) {
-	rows, err := r.conn.Query(ctx, buildAccountSearchQuery(filter))
+func (r *Repository) FilterAccounts(ctx context.Context, f *Filter) (*domain.AccountsOut, error) {
+	sql, values, err := buildAccountSearchQuery(f)
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := r.conn.Query(ctx, sql, values...)
 	if err != nil {
 		return nil, err
 	}
@@ -35,30 +40,30 @@ func (r *Repository) FilterAccounts(ctx context.Context, filter Filter) (*domain
 	defer rows.Close()
 
 	var acc domain.AccountOut
-	scanFields := make([]interface{}, 0, len(filter.Fields))
+	scanFields := make([]interface{}, 0, len(f.Columns()))
 	scanFields = append(scanFields, &acc.ID)
 	scanFields = append(scanFields, &acc.Email)
-	for field := range filter.Fields {
-		switch field {
-		case "id", "email":
+	for column := range f.Columns() {
+		switch column {
+		case AccountID, AccountEmail:
 			continue
-		case "sex":
+		case AccountSex:
 			scanFields = append(scanFields, &acc.Sex)
-		case "status":
+		case AccountStatus:
 			scanFields = append(scanFields, &acc.Status)
-		case "birth":
+		case AccountBirth:
 			scanFields = append(scanFields, &acc.Birth)
-		case "fname":
+		case AccountFirstname:
 			scanFields = append(scanFields, &acc.Fname)
-		case "sname":
+		case AccountSurname:
 			scanFields = append(scanFields, &acc.Sname)
-		case "phone":
+		case AccountPhone:
 			scanFields = append(scanFields, &acc.Phone)
-		case "country":
+		case CountryName:
 			scanFields = append(scanFields, &acc.Country)
-		case "city":
+		case CityName:
 			scanFields = append(scanFields, &acc.City)
-		case "premium":
+		case AccountPremStart:
 			scanFields = append(scanFields, &acc.Premium)
 		default:
 			return nil, errInvalidField
@@ -144,12 +149,12 @@ func (r *Repository) insertAccount(ctx context.Context, a *domain.AccountModel, 
 		return errNilModel
 	}
 
-	return tx.QueryRow(
-		ctx,
-		`INSERT INTO account(id, status, email, sex, birth, name, surname, phone, country_id, city_id, joined, prem_start, prem_end)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING account_id`,
-		a.ID, a.Status, a.Email, a.Sex, a.Birth, a.Name, a.Surname, a.Phone, a.CountryID, a.CityID, a.Joined, a.PremiumStart, a.PremiumEnd,
-	).Scan(&a.ID)
+	sql, values, err := buildAccountInsertQuery(*a)
+	if err != nil {
+		return err
+	}
+
+	return tx.QueryRow(ctx, sql, values...).Scan(&a.ID)
 }
 
 func (r *Repository) tryInsertCity(ctx context.Context, c *domain.CityModel, tx pgx.Tx) (id int32, err error) {
@@ -157,11 +162,12 @@ func (r *Repository) tryInsertCity(ctx context.Context, c *domain.CityModel, tx 
 		return
 	}
 
-	err = tx.QueryRow(
-		ctx,
-		`INSERT INTO city(name) VALUES($1) ON CONFLICT(name) DO NOTHING RETURNING id`,
-		c.Name,
-	).Scan(&id)
+	sql, values, err := buildCityInsertQuery(*c)
+	if err != nil {
+		return
+	}
+
+	err = tx.QueryRow(ctx, sql, values...).Scan(&id)
 	return
 }
 
@@ -170,14 +176,16 @@ func (r *Repository) tryInsertCountry(ctx context.Context, c *domain.CountryMode
 		return
 	}
 
-	err = tx.QueryRow(
-		ctx,
-		`INSERT INTO country(name) VALUES($1) ON CONFLICT(name) DO NOTHING RETURNING id`,
-		c.Name,
-	).Scan(&id)
+	sql, values, err := buildCountryInsertQuery(*c)
+	if err != nil {
+		return
+	}
+
+	err = tx.QueryRow(ctx, sql, values...).Scan(&id)
 	return
 }
 
+// TODO: rework bulk insert
 func (r *Repository) tryInsertLikes(ctx context.Context, likes []domain.LikeModel, tx pgx.Tx) (err error) {
 	if likes == nil || len(likes) == 0 {
 		return
@@ -186,8 +194,8 @@ func (r *Repository) tryInsertLikes(ctx context.Context, likes []domain.LikeMode
 	if tx == nil {
 		_, err = r.conn.CopyFrom(
 			ctx,
-			pgx.Identifier{"likes"},
-			[]string{"liker_id", "likee_id", "ts"},
+			pgx.Identifier{TableLike},
+			[]string{LikesLikerID, LikesLikeeID, LikesTimestamp},
 			pgx.CopyFromSlice(len(likes), func(i int) ([]interface{}, error) {
 				return []interface{}{likes[i].LikerID, likes[i].LikeeID, likes[i].Timestamp}, nil
 			}),
@@ -198,8 +206,8 @@ func (r *Repository) tryInsertLikes(ctx context.Context, likes []domain.LikeMode
 
 	_, err = tx.CopyFrom(
 		ctx,
-		pgx.Identifier{"likes"},
-		[]string{"liker_id", "likee_id", "ts"},
+		pgx.Identifier{TableLike},
+		[]string{LikesLikerID, LikesLikeeID, LikesTimestamp},
 		pgx.CopyFromSlice(len(likes), func(i int) ([]interface{}, error) {
 			return []interface{}{likes[i].LikerID, likes[i].LikeeID, likes[i].Timestamp}, nil
 		}),
@@ -208,6 +216,7 @@ func (r *Repository) tryInsertLikes(ctx context.Context, likes []domain.LikeMode
 	return
 }
 
+// TODO: rework bulk insert
 func (r *Repository) tryInsertInterests(ctx context.Context, interests []domain.InterestModel, tx pgx.Tx) (err error) {
 	if interests == nil || len(interests) == 0 {
 		return
@@ -215,8 +224,8 @@ func (r *Repository) tryInsertInterests(ctx context.Context, interests []domain.
 
 	_, err = tx.CopyFrom(
 		ctx,
-		pgx.Identifier{"interests"},
-		[]string{"account_id", "name"},
+		pgx.Identifier{TableInterest},
+		[]string{InterestAccountID, InterestName},
 		pgx.CopyFromSlice(len(interests), func(i int) ([]interface{}, error) {
 			return []interface{}{interests[i].AccountID, interests[i].Name}, nil
 		}),
@@ -226,7 +235,7 @@ func (r *Repository) tryInsertInterests(ctx context.Context, interests []domain.
 }
 
 func (r *Repository) updateAccount(ctx context.Context, a domain.AccountUpdate, cityID, countryID int32, tx pgx.Tx) error {
-	sql, values := buildAccountUpdateQuery(a, cityID, countryID)
+	sql, values, err := buildAccountUpdateQuery(a, cityID, countryID)
 	result, err := tx.Exec(ctx, sql, values...)
 	if err != nil {
 		return err
