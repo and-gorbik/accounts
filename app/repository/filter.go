@@ -37,7 +37,12 @@ func (f *Filter) Build() (string, []interface{}, error) {
 		totalValues = append(totalValues, values...)
 	}
 
-	return strings.Join(predicates, " AND "), totalValues, nil
+	sql, err := squirrel.Dollar.ReplacePlaceholders(strings.Join(predicates, " AND "))
+	if err != nil {
+		return "", nil, err
+	}
+
+	return sql, totalValues, nil
 }
 
 func (f *Filter) Eq(column string, value interface{}) {
@@ -128,7 +133,7 @@ type opAny struct {
 func (op *opAny) ToSql() (string, []interface{}, error) {
 	var b strings.Builder
 	b.WriteString(op.Field)
-	b.WriteString(" = ALL(")
+	b.WriteString(" = ANY(")
 	b.WriteString(squirrel.Placeholders(len(op.Values)))
 	b.WriteRune(')')
 
@@ -143,7 +148,7 @@ type opAll struct {
 func (op *opAll) ToSql() (string, []interface{}, error) {
 	var b strings.Builder
 	b.WriteString(op.Field)
-	b.WriteString(" = ANY(")
+	b.WriteString(" = ALL(")
 	b.WriteString(squirrel.Placeholders(len(op.Values)))
 	b.WriteRune(')')
 
