@@ -1,7 +1,7 @@
 package service
 
 import (
-	"errors"
+	"fmt"
 	"net/url"
 	"strings"
 
@@ -10,17 +10,12 @@ import (
 )
 
 type QueryParam struct {
-	Type     int
-	Field    string
-	StrValue string
-	Op       *string
+	Field  string
+	Values []interface{}
+	Op     *string
 }
 
-const (
-	typeInt = iota
-	typeStr
-	typeTimestamp
-)
+type parserFunc = func(op *string, strValues []string) ([]interface{}, error)
 
 const (
 	opEq       = "eq"
@@ -35,8 +30,6 @@ const (
 	opYear     = "year"
 	opContains = "contains"
 	opNow      = "now"
-
-	noOp = ""
 )
 
 const (
@@ -58,46 +51,31 @@ const (
 )
 
 var (
-	yes = struct{}{}
-)
-
-var (
-	qpRules = map[string]map[string]struct{}{
-		qpSex:       {opEq: yes},
-		qpEmail:     {opDomain: yes, opGt: yes, opLt: yes},
-		qpStatus:    {opEq: yes, opNeq: yes},
-		qpFirstname: {opEq: yes, opAny: yes, opNull: yes},
-		qpSurname:   {opEq: yes, opStarts: yes, opNull: yes},
-		qpPhone:     {opCode: yes, opNull: yes},
-		qpCountry:   {opEq: yes, opNull: yes},
-		qpCity:      {opEq: yes, opAny: yes, opNull: yes},
-		qpBirth:     {opLt: yes, opGt: yes, opYear: yes},
-		qpInterests: {opContains: yes, opAny: yes},
-		qpLikes:     {opContains: yes},
-		qpPremium:   {opNow: yes, opNull: yes},
-	}
-
-	qpTypes = map[string]map[string]int{
-		qpSex:       {noOp: typeStr, opEq: typeStr},
-		qpEmail:     {noOp: typeStr, opDomain: typeStr, opGt: typeStr, opLt: typeStr},
-		qpStatus:    {noOp: typeStr, opEq: typeStr, opNeq: typeStr},
-		qpFirstname: {noOp: typeStr, opEq: typeStr, opAny: typeStr, opNull: typeInt},
-		qpSurname:   {noOp: typeStr, opEq: typeStr, opStarts: typeStr, opNull: typeInt},
-		qpPhone:     {noOp: typeStr, opCode: typeInt, opNull: typeInt},
-		qpCountry:   {noOp: typeStr, opEq: typeStr, opNull: typeInt},
-		qpCity:      {noOp: typeStr, opEq: typeStr, opAny: typeInt, opNull: typeInt},
-		qpBirth:     {noOp: typeTimestamp, opLt: typeTimestamp, opGt: typeTimestamp, opYear: typeInt},
-		qpInterests: {noOp: typeStr, opContains: typeStr, opAny: typeStr},
-		qpLikes:     {noOp: typeInt, opContains: typeInt},
-		qpPremium:   {noOp: typeTimestamp, opNow: typeInt, opNull: typeInt},
+	paramParsers = map[string]parserFunc{
+		qpSex:       parseSex,
+		qpEmail:     parseEmail,
+		qpStatus:    parseStatus,
+		qpFirstname: parseFirstname,
+		qpSurname:   parseSurname,
+		qpPhone:     parsePhone,
+		qpCountry:   parseCountry,
+		qpCity:      parseCity,
+		qpBirth:     parseBirth,
+		qpInterests: parseInterests,
+		qpLikes:     parseLikes,
+		qpPremium:   parsePremium,
 	}
 )
 
 var (
-	errInvalidParam         = errors.New("invalid query param")
-	errInvalidValue         = errors.New("invalid value")
-	errEmptyValue           = errors.New("empty value")
-	errMissingRequiredParam = errors.New("missing required param")
+	errInvalidParam         = "invalid query param: %s"
+	errInvalidParamWithOp   = "invalid query param with operation: %s"
+	errInvalidValue         = "invalid value: %v"
+	errInvalidOp            = "invalid operation: %s"
+	errEmptyValue           = "empty value"
+	errValuesLen            = "invalid number of values: %d"
+	errMissingRequiredParam = "missing required param: %s"
+	errEmptyOp              = "empty operation"
 )
 
 func ParseQueryParams(qps url.Values, withOp bool) (map[string]QueryParam, error) {
@@ -107,7 +85,7 @@ func ParseQueryParams(qps url.Values, withOp bool) (map[string]QueryParam, error
 	}
 
 	if _, ok := qps[qpQueryID]; !ok {
-		return nil, errMissingRequiredParam
+		return nil, fmt.Errorf(errMissingRequiredParam, qpQueryID)
 	}
 
 	params := make(map[string]QueryParam, len(qps)-1)
@@ -118,13 +96,8 @@ func ParseQueryParams(qps url.Values, withOp bool) (map[string]QueryParam, error
 			continue
 		}
 
-		// TODO: pass values []string directly
-		qp, err := parseQueryParam(param, strings.Join(values, ","), withOp)
+		qp, err := parseQueryParam(param, values, withOp)
 		if err != nil {
-			return nil, err
-		}
-
-		if err := validateValues(qp.Field, qp.Op, values); err != nil {
 			return nil, err
 		}
 
@@ -134,175 +107,345 @@ func ParseQueryParams(qps url.Values, withOp bool) (map[string]QueryParam, error
 	return params, nil
 }
 
-func parseQueryParam(param string, value string, withOp bool) (qp QueryParam, err error) {
-	if withOp {
-		tokens := strings.Split(param, "_")
-		if len(tokens) != 2 {
-			err = errInvalidParam
-			return
+func parseQueryParam(param string, strValues []string, withOp bool) (qp QueryParam, err error) {
+	if !withOp {
+		parser, ok := paramParsers[param]
+		if !ok {
+			return qp, fmt.Errorf(errInvalidParam, param)
 		}
 
-		if _, ok := qpRules[tokens[0]][tokens[1]]; !ok {
-			err = errInvalidParam
-			return
-		}
-
-		qp.Field = tokens[0]
-		qp.Op = &tokens[1]
-	} else {
 		qp.Field = param
-	}
-
-	if value == "" {
-		err = errEmptyValue
+		qp.Values, err = parser(nil, strValues)
 		return
 	}
 
-	var op string
-	if qp.Op == nil {
-		op = noOp
+	tokens := strings.Split(param, "_")
+	if len(tokens) != 2 {
+		return qp, fmt.Errorf(errInvalidParamWithOp, param)
 	}
-	qp.Type = qpTypes[param][op]
-	qp.StrValue = value
 
+	qp.Field = tokens[0]
+	qp.Op = &tokens[1]
+	parser, ok := paramParsers[qp.Field]
+	if !ok {
+		return qp, fmt.Errorf(errInvalidParamWithOp, param)
+	}
+	qp.Values, err = parser(qp.Op, strValues)
 	return
 }
 
 func parseLimit(qps url.Values) (QueryParam, error) {
 	if _, ok := qps[qpLimit]; !ok {
-		return QueryParam{}, errMissingRequiredParam
+		return QueryParam{}, fmt.Errorf(errMissingRequiredParam, qpLimit)
 	}
 
 	if len(qps[qpLimit]) != 1 {
-		return QueryParam{}, errInvalidValue
+		return QueryParam{}, fmt.Errorf(errInvalidValue, len(qps[qpLimit]))
+	}
+
+	limit, err := util.ParseInt(qps[qpLimit][0])
+	if err != nil {
+		return QueryParam{}, err
 	}
 
 	return QueryParam{
-		Field:    qpLimit,
-		StrValue: qps[qpLimit][0],
+		Field:  qpLimit,
+		Values: []interface{}{limit},
 	}, nil
 }
 
-// TODO: refact to make it more readable
-func validateValues(param string, op *string, values []string) error {
-	if len(values) == 0 {
-		return nil
+// opEq
+func parseSex(op *string, strValues []string) ([]interface{}, error) {
+	if op != nil && *op != opEq {
+		return nil, fmt.Errorf(errInvalidOp, *op)
 	}
 
-	switch param {
-	case qpSex:
-		return (*domain.FieldSex)(&values[0]).Validate()
-	case qpEmail:
-		if op == nil {
-			return (*domain.FieldEmail)(&values[0]).Validate()
-		}
-	case qpStatus:
-		return (*domain.FieldStatus)(&values[0]).Validate()
-	case qpFirstname:
-		if op == nil {
-			return (*domain.FieldFirstname)(&values[0]).Validate()
-		}
-		if *op == opNull {
-			return validateBoolValue(values[0])
-		}
-		for _, val := range values {
-			if err := (*domain.FieldFirstname)(&val).Validate(); err != nil {
-				return err
-			}
-		}
-	case qpSurname:
-		if op == nil || (op != nil && *op == opEq) {
-			return (*domain.FieldSurname)(&values[0]).Validate()
-		}
-		if op != nil && *op == opNull {
-			return validateBoolValue(values[0])
-		}
-	case qpPhone:
-		if op == nil {
-			return (*domain.FieldPhone)(&values[0]).Validate()
-		}
-		if *op == opNull {
-			return validateBoolValue(values[0])
-		}
-	case qpCountry:
-		if op != nil && *op == opNull {
-			return validateBoolValue(values[0])
-		}
-		return (*domain.FieldCountry)(&values[0]).Validate()
-	case qpCity:
-		if op != nil && *op == opNull {
-			return validateBoolValue(values[0])
-		}
-		for _, val := range values {
-			if err := (*domain.FieldCity)(&val).Validate(); err != nil {
-				return err
-			}
-		}
-	case qpBirth:
-		if op != nil && *op == opYear {
-			if _, err := util.ParseInt(values[0]); err != nil {
-				return err
-			}
-		}
-		ts, err := util.ParseTimestamp(values[0])
-		if err != nil {
-			return err
-		}
-
-		return (*domain.FieldBirth)(&ts).Validate()
-	case qpPremium:
-		if op != nil {
-			return validateBoolValue(values[0])
-		}
-
-		ts, err := util.ParseTimestamp(values[0])
-		if err != nil {
-			return err
-		}
-
-		return (*domain.FieldPremium)(&ts).Validate()
-	case qpInterests:
-		for _, value := range values {
-			if err := (*domain.FieldInterest)(&value).Validate(); err != nil {
-				return err
-			}
-		}
-
-		return nil
-	case qpLikes:
-		for _, value := range values {
-			intVal, err := util.ParseInt(value)
-			if err != nil {
-				return err
-			}
-
-			int32Val := int32(intVal)
-			if err := (*domain.FieldID)(&int32Val).Validate(); err != nil {
-				return err
-			}
-		}
-
-		return nil
-	case qpLimit:
-		_, err := util.ParseInt(values[0])
-		if err != nil {
-			return err
-		}
-	default:
+	values, err := NewParser(strValues).SingleValue().String().Parse()
+	if err != nil {
+		return nil, err
 	}
 
-	return nil
+	sex := domain.FieldSex(values[0].(string))
+	return values, sex.Validate()
 }
 
-func validateBoolValue(val string) error {
-	intVal, err := util.ParseInt(val)
+// opEq, opAny, opNull
+func parseFirstname(op *string, strValues []string) ([]interface{}, error) {
+	if op == nil || (op != nil && *op == opEq) {
+		values, err := NewParser(strValues).SingleValue().String().Parse()
+		if err != nil {
+			return nil, err
+		}
+
+		fname := domain.FieldFirstname(values[0].(string))
+		if err = fname.Validate(); err != nil {
+			return nil, err
+		}
+
+		return values, nil
+	}
+
+	switch *op {
+	case opNull:
+		return NewParser(strValues).SingleValue().Bool().Parse()
+
+	case opAny:
+		values, err := NewParser(strValues).String().Parse()
+		if err != nil {
+			return nil, err
+		}
+
+		for _, v := range values {
+			fname := domain.FieldFirstname(v.(string))
+			if err = fname.Validate(); err != nil {
+				return nil, err
+			}
+		}
+
+		return values, nil
+
+	default:
+		return nil, fmt.Errorf(errInvalidOp, *op)
+	}
+}
+
+// opDomain, opGt, opLt
+func parseEmail(op *string, strValues []string) ([]interface{}, error) {
+	values, err := NewParser(strValues).SingleValue().String().Parse()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	if intVal != 0 && intVal != 1 {
-		return errInvalidValue
+	if op == nil {
+		email := domain.FieldEmail(values[0].(string))
+		return values, email.Validate()
 	}
 
-	return nil
+	switch *op {
+	case opDomain, opGt, opLt:
+		return values, nil
+	default:
+		return nil, fmt.Errorf(errInvalidOp, *op)
+	}
+}
+
+// opEq, opNeq
+func parseStatus(op *string, strValues []string) ([]interface{}, error) {
+	values, err := NewParser(strValues).SingleValue().String().Parse()
+	if err != nil {
+		return nil, err
+	}
+
+	email := domain.FieldStatus(values[0].(string))
+	if err = email.Validate(); err != nil {
+		return nil, err
+	}
+
+	if op == nil {
+		return values, nil
+	}
+
+	switch *op {
+	case opEq, opNeq:
+		return values, nil
+	default:
+		return nil, fmt.Errorf(errInvalidOp, *op)
+	}
+
+}
+
+// opEq, opStarts, opNull
+func parseSurname(op *string, strValues []string) ([]interface{}, error) {
+	if op == nil || (op != nil && *op == opEq) {
+		values, err := NewParser(strValues).SingleValue().String().Parse()
+		if err != nil {
+			return nil, err
+		}
+
+		surname := domain.FieldSurname(values[0].(string))
+		return values, surname.Validate()
+	}
+
+	switch *op {
+	case opNull:
+		return NewParser(strValues).SingleValue().Bool().Parse()
+	case opStarts:
+		return NewParser(strValues).SingleValue().String().Parse()
+	default:
+		return nil, fmt.Errorf(errInvalidOp, *op)
+	}
+}
+
+// opCode, opNull
+func parsePhone(op *string, strValues []string) ([]interface{}, error) {
+	if op == nil {
+		values, err := NewParser(strValues).SingleValue().String().Parse()
+		if err != nil {
+			return nil, err
+		}
+
+		phone := domain.FieldPhone(values[0].(string))
+		return values, phone.Validate()
+	}
+
+	switch *op {
+	case opCode:
+		return NewParser(strValues).SingleValue().Int().Parse()
+	case opNull:
+		return NewParser(strValues).SingleValue().Bool().Parse()
+	default:
+		return nil, fmt.Errorf(errInvalidOp, *op)
+	}
+}
+
+// opEq, opNull
+func parseCountry(op *string, strValues []string) ([]interface{}, error) {
+	if op == nil || (op != nil && *op == opEq) {
+		values, err := NewParser(strValues).SingleValue().String().Parse()
+		if err != nil {
+			return nil, err
+		}
+
+		country := domain.FieldCountry(values[0].(string))
+		return values, country.Validate()
+	}
+
+	switch *op {
+	case opNull:
+		return NewParser(strValues).SingleValue().Bool().Parse()
+	default:
+		return nil, fmt.Errorf(errInvalidOp, *op)
+	}
+}
+
+// opEq, opAny, opNull
+func parseCity(op *string, strValues []string) ([]interface{}, error) {
+	if op == nil || (op != nil && *op == opEq) {
+		values, err := NewParser(strValues).SingleValue().String().Parse()
+		if err != nil {
+			return nil, err
+		}
+
+		city := domain.FieldCity(values[0].(string))
+		return values, city.Validate()
+	}
+
+	switch *op {
+	case opNull:
+		return NewParser(strValues).SingleValue().Bool().Parse()
+	case opAny:
+		values, err := NewParser(strValues).String().Parse()
+		if err != nil {
+			return nil, err
+		}
+
+		for _, v := range values {
+			city := domain.FieldCity(v.(string))
+			if err = city.Validate(); err != nil {
+				return nil, err
+			}
+		}
+
+		return values, nil
+	default:
+		return nil, fmt.Errorf(errInvalidOp, *op)
+	}
+}
+
+// opLt, opGt, opYear
+func parseBirth(op *string, strValues []string) ([]interface{}, error) {
+	if op == nil {
+		values, err := NewParser(strValues).SingleValue().Timestamp().Parse()
+		if err != nil {
+			return nil, err
+		}
+
+		birth := domain.FieldBirth(values[0].(int64))
+		return values, birth.Validate()
+	}
+
+	switch *op {
+	case opLt, opGt:
+		values, err := NewParser(strValues).SingleValue().Timestamp().Parse()
+		if err != nil {
+			return nil, err
+		}
+
+		birth := domain.FieldBirth(values[0].(int64))
+		return values, birth.Validate()
+	case opYear:
+		return NewParser(strValues).SingleValue().Int().Parse()
+	default:
+		return nil, fmt.Errorf(errInvalidOp, *op)
+	}
+}
+
+// opNow, opNull
+func parsePremium(op *string, strValues []string) ([]interface{}, error) {
+	if op == nil {
+		values, err := NewParser(strValues).SingleValue().Timestamp().Parse()
+		if err != nil {
+			return nil, err
+		}
+
+		premium := domain.FieldPremium(values[0].(int64))
+		return values, premium.Validate()
+	}
+
+	switch *op {
+	case opNow, opNull:
+		return NewParser(strValues).SingleValue().Bool().Parse()
+	default:
+		return nil, fmt.Errorf(errInvalidOp, *op)
+	}
+}
+
+// opContains, opAny
+func parseInterests(op *string, strValues []string) ([]interface{}, error) {
+	if op == nil {
+		return nil, fmt.Errorf(errEmptyOp)
+	}
+
+	if op != nil && *op != opContains && *op != opAny {
+		return nil, fmt.Errorf(errInvalidOp, *op)
+	}
+
+	values, err := NewParser(strValues).String().Parse()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, v := range values {
+		interest := domain.FieldInterest(v.(string))
+		if err = interest.Validate(); err != nil {
+			return nil, err
+		}
+	}
+
+	return values, nil
+}
+
+// opContains
+func parseLikes(op *string, strValues []string) ([]interface{}, error) {
+	if op == nil {
+		return nil, fmt.Errorf(errEmptyOp)
+	}
+
+	if op != nil && *op != opContains {
+		return nil, fmt.Errorf(errInvalidOp, *op)
+	}
+
+	values, err := NewParser(strValues).Int().Parse()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, v := range values {
+		likeeID := domain.FieldID(v.(int))
+		if err = likeeID.Validate(); err != nil {
+			return nil, err
+		}
+	}
+
+	return values, nil
 }

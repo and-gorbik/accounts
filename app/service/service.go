@@ -18,10 +18,10 @@ type BusinessError struct {
 }
 
 type AccountService struct {
-	repo repo
+	repo accountRepo
 }
 
-func New(repo repo) *AccountService {
+func New(repo accountRepo) *AccountService {
 	return &AccountService{
 		repo: repo,
 	}
@@ -33,7 +33,12 @@ func (s *AccountService) FilterAccounts(ctx context.Context, params url.Values) 
 		return nil, BusinessError{err}
 	}
 
-	accounts, err := s.repo.FilterAccounts(ctx, BuildFilter(qps))
+	filter, err := BuildFilter(qps)
+	if err != nil {
+		return nil, err
+	}
+
+	accounts, err := s.repo.FilterAccounts(ctx, filter)
 	if err != nil {
 		return nil, BusinessError{err}
 	}

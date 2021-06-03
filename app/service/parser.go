@@ -1,6 +1,8 @@
 package service
 
 import (
+	"fmt"
+
 	"accounts/util"
 )
 
@@ -17,13 +19,13 @@ func NewParser(values []string) *parser {
 	}
 }
 
-func (p *parser) OnlyValue() *parser {
+func (p *parser) SingleValue() *parser {
 	if p.err != nil {
 		return p
 	}
 
 	if len(p.strValues) != 1 {
-		p.err = errValuesLen
+		p.err = fmt.Errorf(errValuesLen, len(p.strValues))
 	}
 
 	return p
@@ -72,7 +74,7 @@ func (p *parser) Bool() *parser {
 		}
 
 		if intVal != 0 && intVal != 1 {
-			p.err = errInvalidValue
+			p.err = fmt.Errorf(errInvalidValue, intVal)
 			break
 		}
 
