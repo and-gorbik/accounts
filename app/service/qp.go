@@ -96,7 +96,11 @@ func ParseQueryParams(qps url.Values, withOp bool) (map[string]QueryParam, error
 			continue
 		}
 
-		qp, err := parseQueryParam(param, values, withOp)
+		if len(values) != 1 {
+			return nil, fmt.Errorf(errValuesLen, len(values))
+		}
+
+		qp, err := parseQueryParam(param, strings.Split(values[0], ","), withOp)
 		if err != nil {
 			return nil, err
 		}

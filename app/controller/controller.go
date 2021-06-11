@@ -29,14 +29,17 @@ func (c *Controller) FilterAccounts(w http.ResponseWriter, r *http.Request) {
 
 func (c *Controller) GroupAccounts(w http.ResponseWriter, r *http.Request) {
 	log.Println("group accounts")
+	w.WriteHeader(http.StatusNotImplemented)
 }
 
 func (c *Controller) GetRecommends(w http.ResponseWriter, r *http.Request) {
 	log.Println("get recommends")
+	w.WriteHeader(http.StatusNotImplemented)
 }
 
 func (c *Controller) GetSuggestions(w http.ResponseWriter, r *http.Request) {
 	log.Println("get suggestions")
+	w.WriteHeader(http.StatusNotImplemented)
 }
 
 func (c *Controller) CreateAccount(w http.ResponseWriter, r *http.Request) {

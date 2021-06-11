@@ -18,7 +18,7 @@ var qpOnColumns = map[string]string{
 	qpCity:      repo.CityName,
 	qpBirth:     repo.AccountBirth,
 	qpInterests: repo.InterestName,
-	qpLikes:     repo.LikesLikeeID,     // ?
+	qpLikes:     repo.LikesLikerID,     // ?
 	qpPremium:   repo.AccountPremStart, // ?
 }
 
@@ -61,10 +61,10 @@ func BuildFilter(params map[string]QueryParam) (*repo.Filter, error) {
 			filter.Code(column, param.Values[0])
 		case opYear:
 			filter.Year(column, param.Values[0])
-		case opContains:
-			filter.Contains(column, param.Values)
 		case opNow:
 			filter.Now(column)
+		case opContains:
+			filter.Contains(column, param.Values)
 		}
 	}
 

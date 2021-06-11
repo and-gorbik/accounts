@@ -48,6 +48,7 @@ func buildAccountSearchQuery(f *Filter) (string, []interface{}, error) {
 	}
 
 	q := squirrel.Select(AccountID, AccountEmail).
+		PlaceholderFormat(squirrel.Dollar).
 		From(TableAccount).
 		Where(where, params...).
 		OrderBy(AccountID + " DESC")
@@ -55,23 +56,23 @@ func buildAccountSearchQuery(f *Filter) (string, []interface{}, error) {
 	for column := range f.Columns() {
 		switch column {
 		case AccountSex, AccountStatus, AccountBirth, AccountPhone, AccountFirstname, AccountSurname:
-			q.Column(column)
+			q = q.Column(column)
 		case CityName:
-			q.Column(column).Join(join(TableCity, CityID, AccountCityID))
+			q = q.Column(column).Join(join(TableCity, CityID, AccountCityID))
 		case CountryName:
-			q.Column(column).Join(join(TableCountry, CountryID, AccountCountryID))
+			q = q.Column(column).Join(join(TableCountry, CountryID, AccountCountryID))
 		case LikesLikerID:
-			q.Join(join(TableLike, LikesLikerID, AccountID))
+			q = q.Join(join(TableLike, LikesLikerID, AccountID))
 		case InterestName:
-			q.Join(join(TableInterest, InterestAccountID, AccountID))
+			q = q.Join(join(TableInterest, InterestAccountID, AccountID))
 		}
 	}
 
 	if f.Limit != 0 {
-		q.Limit(uint64(f.Limit))
+		q = q.Limit(uint64(f.Limit))
 	}
 
-	return q.PlaceholderFormat(squirrel.Dollar).ToSql()
+	return q.ToSql()
 }
 
 func buildAccountUpdateQuery(a domain.AccountUpdate, cityID, countryID int32) (string, []interface{}, error) {
@@ -130,7 +131,7 @@ func buildCountryInsertQuery(c domain.CountryModel) (string, []interface{}, erro
 }
 
 func join(table, left, right string) string {
-	return fmt.Sprintf("JOIN %s ON %s = %s", table, left, right)
+	return fmt.Sprintf("%s ON %s = %s", table, left, right)
 }
 
 func returning(columns ...string) string {

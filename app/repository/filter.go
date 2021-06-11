@@ -71,18 +71,13 @@ func (f *Filter) Gt(column string, value interface{}) {
 }
 
 func (f *Filter) Any(column string, values []interface{}) {
-	f.ops = append(f.ops, &opAny{
-		Field:  column,
-		Values: values,
-	})
+	f.ops = append(f.ops, squirrel.Eq{column: values})
 	f.cols[column] = struct{}{}
 }
 
+// TODO: fix contains operation
 func (f *Filter) Contains(column string, values []interface{}) {
-	f.ops = append(f.ops, &opAll{
-		Field:  column,
-		Values: values,
-	})
+	f.ops = append(f.ops, squirrel.Eq{column: values})
 	f.cols[column] = struct{}{}
 }
 
@@ -125,32 +120,18 @@ func (f *Filter) Year(column string, value interface{}) {
 	f.cols[column] = struct{}{}
 }
 
-type opAny struct {
-	Field  string
-	Values []interface{}
-}
+// type opAll struct {
+// 	Field  string
+// 	SubQ   string
+// 	Values []interface{}
+// }
 
-func (op *opAny) ToSql() (string, []interface{}, error) {
-	var b strings.Builder
-	b.WriteString(op.Field)
-	b.WriteString(" = ANY(")
-	b.WriteString(squirrel.Placeholders(len(op.Values)))
-	b.WriteRune(')')
+// func (op *opAll) ToSql() (string, []interface{}, error) {
+// 	var b strings.Builder
+// 	b.WriteString(op.Field)
+// 	b.WriteString(" = IN(")
+// 	b.WriteString(op.SubQ)
+// 	b.WriteRune(')')
 
-	return b.String(), op.Values, nil
-}
-
-type opAll struct {
-	Field  string
-	Values []interface{}
-}
-
-func (op *opAll) ToSql() (string, []interface{}, error) {
-	var b strings.Builder
-	b.WriteString(op.Field)
-	b.WriteString(" = ALL(")
-	b.WriteString(squirrel.Placeholders(len(op.Values)))
-	b.WriteRune(')')
-
-	return b.String(), op.Values, nil
-}
+// 	return b.String(), op.Values, nil
+// }

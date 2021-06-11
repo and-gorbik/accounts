@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"log"
 
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -31,6 +32,8 @@ func (r *Repository) FilterAccounts(ctx context.Context, f *Filter) (*domain.Acc
 	if err != nil {
 		return nil, err
 	}
+
+	log.Println(sql)
 
 	rows, err := r.conn.Query(ctx, sql, values...)
 	if err != nil {
@@ -65,6 +68,8 @@ func (r *Repository) FilterAccounts(ctx context.Context, f *Filter) (*domain.Acc
 			scanFields = append(scanFields, &acc.City)
 		case AccountPremStart:
 			scanFields = append(scanFields, &acc.Premium)
+		case InterestName, LikesLikeeID:
+			continue
 		default:
 			return nil, errInvalidField
 		}

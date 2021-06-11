@@ -16,16 +16,19 @@ func Test_buildAccountSearchQuery_Success(t *testing.T) {
 	f.Domain(AccountEmail, "test.ru")
 	f.Any(AccountFirstname, []interface{}{"Андрей", "Иван"})
 	f.Null(CountryName, false)
+	f.Limit = 10
 
 	sql, values, err := buildAccountSearchQuery(f)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	expected := "SELECT account.id, account.email FROM account "
+	expected := "SELECT account.id, account.email, account.name, country.name, account.sex FROM account "
+	expected += "JOIN country ON country.id = account.country_id "
 	expected += "WHERE account.sex = $1 AND account.email LIKE $2 "
 	expected += "AND account.name = ALL($3,$4) AND country.name IS NOT NULL "
-	expected += "ORDER BY account.id DESC"
+	expected += "ORDER BY account.id DESC "
+	expected += "LIMIT 10"
 
 	assert.Equal(t, expected, sql)
 	assert.Equal(t, 4, len(values))
