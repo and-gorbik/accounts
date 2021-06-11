@@ -124,7 +124,7 @@ func Test_BuildFilter(t *testing.T) {
 					Op:     util.PtrString(opAny),
 				},
 			},
-			Expected: "city.name = ANY($1,$2,$3)",
+			Expected: "city.name IN ($1,$2,$3)",
 		},
 		{
 			Params: map[string]QueryParam{
@@ -134,7 +134,7 @@ func Test_BuildFilter(t *testing.T) {
 					Op:     util.PtrString(opContains),
 				},
 			},
-			Expected: "likes.likee_id = ALL($1,$2,$3)",
+			Expected: "likes.liker_id IN ($1,$2,$3)",
 		},
 		{
 			Params: map[string]QueryParam{

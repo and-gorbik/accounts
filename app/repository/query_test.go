@@ -23,10 +23,10 @@ func Test_buildAccountSearchQuery_Success(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	expected := "SELECT account.id, account.email, account.name, country.name, account.sex FROM account "
+	expected := "SELECT account.id, account.email, account.sex, account.name, country.name FROM account "
 	expected += "JOIN country ON country.id = account.country_id "
 	expected += "WHERE account.sex = $1 AND account.email LIKE $2 "
-	expected += "AND account.name = ALL($3,$4) AND country.name IS NOT NULL "
+	expected += "AND account.name IN ($3,$4) AND country.name IS NOT NULL "
 	expected += "ORDER BY account.id DESC "
 	expected += "LIMIT 10"
 
