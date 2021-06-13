@@ -7,10 +7,10 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/stdlib"
 	"github.com/jmoiron/sqlx"
 	"github.com/urfave/cli/v2"
@@ -106,61 +106,52 @@ func writeToDB(conn *sqlx.DB, accounts []Account) error {
 	return writeLikesAndInterests(conn, accounts)
 }
 
-func writeCountriesAndCities(conn *sqlx.DB, accs []Account) (countries, cities map[string]int32, err error) {
-	countries = make(map[string]int32)
-	cities = make(map[string]int32)
-
-	lenCountries := int32(0)
-	lenCities := int32(0)
+func writeCountriesAndCities(conn *sqlx.DB, accs []Account) (countries, cities map[string]uuid.UUID, err error) {
+	countries = make(map[string]uuid.UUID)
+	cities = make(map[string]uuid.UUID)
 
 	for _, acc := range accs {
 		if acc.Country != nil {
-			if _, ok := countries[*acc.Country]; !ok {
-				countries[*acc.Country] = lenCountries
-				lenCountries++
-			}
+			countries[*acc.Country] = uuid.New()
 		}
 
 		if acc.City != nil {
-			if _, ok := cities[*acc.City]; !ok {
-				cities[*acc.City] = lenCities
-				lenCities++
-			}
+			cities[*acc.City] = uuid.New()
 		}
 	}
 
 	queryTotal := `INSERT INTO %s(id, name) VALUES %s;`
 
-	queriesCity := make([]string, 0, lenCities)
+	queriesCity := make([]string, 0, len(cities))
 	for name, id := range cities {
-		queriesCity = append(queriesCity, fmt.Sprintf(`(%d, '%s')`, id, name))
+		queriesCity = append(queriesCity, fmt.Sprintf(`('%s'::uuid, '%s')`, id, name))
 	}
 
 	if _, err = conn.Exec(fmt.Sprintf(queryTotal, "city", strings.Join(queriesCity, ", "))); err != nil {
 		return
 	}
 
-	queriesCountry := make([]string, 0, lenCountries)
+	queriesCountry := make([]string, 0, len(countries))
 	for name, id := range countries {
-		queriesCountry = append(queriesCountry, fmt.Sprintf(`(%d, '%s')`, id, name))
+		queriesCountry = append(queriesCountry, fmt.Sprintf(`('%s'::uuid, '%s')`, id, name))
 	}
 
 	_, err = conn.Exec(fmt.Sprintf(queryTotal, "country", strings.Join(queriesCountry, ", ")))
 	return
 }
 
-func writeAccounts(conn *sqlx.DB, accs []Account, countries, cities map[string]int32) error {
+func writeAccounts(conn *sqlx.DB, accs []Account, countries, cities map[string]uuid.UUID) error {
 	accounts := make([]domain.AccountModel, 0, len(accs))
 
 	for _, acc := range accs {
 
-		var countryID, cityID *int32
+		var countryID, cityID *uuid.UUID
 		if acc.Country != nil {
-			countryID = int32Ptr(countries[*acc.Country])
+			countryID = ptrUUID(countries[*acc.Country])
 		}
 
 		if acc.City != nil {
-			cityID = int32Ptr(cities[*acc.City])
+			cityID = ptrUUID(cities[*acc.City])
 		}
 
 		accounts = append(accounts, newAccount(&acc, countryID, cityID))
@@ -176,8 +167,8 @@ func writeAccounts(conn *sqlx.DB, accs []Account, countries, cities map[string]i
 			nullableString(a.Name),
 			nullableString(a.Surname),
 			nullableString(a.Phone),
-			nullableInt32(a.CountryID),
-			nullableInt32(a.CityID),
+			nullableUUID(a.CountryID),
+			nullableUUID(a.CityID),
 			nullableTimestamp(&a.Joined),
 			nullableTimestamp(a.PremiumStart),
 			nullableTimestamp(a.PremiumEnd),
@@ -227,7 +218,7 @@ func writeLikesAndInterests(conn *sqlx.DB, accs []Account) error {
 	return nil
 }
 
-func newAccount(a *Account, countryID, cityID *int32) domain.AccountModel {
+func newAccount(a *Account, countryID, cityID *uuid.UUID) domain.AccountModel {
 	account := domain.AccountModel{
 		ID:        a.ID,
 		Status:    a.Status,
@@ -279,7 +270,11 @@ func newInterests(acc *Account) []domain.InterestModel {
 	return interests
 }
 
-func int32Ptr(val int32) *int32 {
+func ptrInt32(val int32) *int32 {
+	return &val
+}
+
+func ptrUUID(val uuid.UUID) *uuid.UUID {
 	return &val
 }
 
@@ -307,10 +302,10 @@ func nullableString(str *string) string {
 	return fmt.Sprintf(`'%s'`, *str)
 }
 
-func nullableInt32(val *int32) string {
+func nullableUUID(val *uuid.UUID) string {
 	if val == nil {
 		return "null"
 	}
 
-	return strconv.Itoa(int(*val))
+	return fmt.Sprintf(`'%s'::uuid`, val.String())
 }

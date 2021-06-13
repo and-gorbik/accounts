@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 
@@ -33,7 +34,7 @@ func (r *Repository) FilterAccounts(ctx context.Context, f *Filter) (*domain.Acc
 		return nil, err
 	}
 
-	log.Println(sql)
+	log.Println(sql, values)
 
 	rows, err := r.conn.Query(ctx, sql, values...)
 	if err != nil {
@@ -159,10 +160,12 @@ func (r *Repository) insertAccount(ctx context.Context, a *domain.AccountModel, 
 		return err
 	}
 
+	log.Println(sql, values)
+
 	return tx.QueryRow(ctx, sql, values...).Scan(&a.ID)
 }
 
-func (r *Repository) tryInsertCity(ctx context.Context, c *domain.CityModel, tx pgx.Tx) (id int32, err error) {
+func (r *Repository) tryInsertCity(ctx context.Context, c *domain.CityModel, tx pgx.Tx) (id uuid.UUID, err error) {
 	if c == nil {
 		return
 	}
@@ -172,11 +175,13 @@ func (r *Repository) tryInsertCity(ctx context.Context, c *domain.CityModel, tx 
 		return
 	}
 
+	log.Println(sql, values)
+
 	err = tx.QueryRow(ctx, sql, values...).Scan(&id)
 	return
 }
 
-func (r *Repository) tryInsertCountry(ctx context.Context, c *domain.CountryModel, tx pgx.Tx) (id int32, err error) {
+func (r *Repository) tryInsertCountry(ctx context.Context, c *domain.CountryModel, tx pgx.Tx) (id uuid.UUID, err error) {
 	if c == nil {
 		return
 	}
@@ -185,6 +190,8 @@ func (r *Repository) tryInsertCountry(ctx context.Context, c *domain.CountryMode
 	if err != nil {
 		return
 	}
+
+	log.Println(sql, values)
 
 	err = tx.QueryRow(ctx, sql, values...).Scan(&id)
 	return
@@ -239,7 +246,7 @@ func (r *Repository) tryInsertInterests(ctx context.Context, interests []domain.
 	return
 }
 
-func (r *Repository) updateAccount(ctx context.Context, a domain.AccountUpdate, cityID, countryID int32, tx pgx.Tx) error {
+func (r *Repository) updateAccount(ctx context.Context, a domain.AccountUpdate, cityID, countryID uuid.UUID, tx pgx.Tx) error {
 	sql, values, err := buildAccountUpdateQuery(a, cityID, countryID)
 	result, err := tx.Exec(ctx, sql, values...)
 	if err != nil {
