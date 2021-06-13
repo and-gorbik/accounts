@@ -68,7 +68,7 @@ func (a *AccountInput) Validate() error {
 	)
 }
 
-func (a *AccountInput) AccountModel(cityID, countryID *uuid.UUID) *AccountModel {
+func (a *AccountInput) AccountModel(cityID, countryID uuid.UUID) *AccountModel {
 	if !a.validated {
 		return nil
 	}
@@ -82,8 +82,8 @@ func (a *AccountInput) AccountModel(cityID, countryID *uuid.UUID) *AccountModel 
 		Name:      (*string)(a.Name),
 		Surname:   (*string)(a.Surname),
 		Phone:     (*string)(a.Phone),
-		CountryID: cityID,
-		CityID:    countryID,
+		CountryID: util.PtrUUID(countryID),
+		CityID:    util.PtrUUID(cityID),
 		Joined:    *util.TimestampToDatetime((*int64)(a.Joined)),
 	}
 
@@ -134,6 +134,7 @@ func (a *AccountInput) CityModel() *CityModel {
 	}
 
 	return &CityModel{
+		ID:   uuid.New(),
 		Name: string(*a.City),
 	}
 }
@@ -144,6 +145,7 @@ func (a *AccountInput) CountryModel() *CountryModel {
 	}
 
 	return &CountryModel{
+		ID:   uuid.New(),
 		Name: string(*a.Country),
 	}
 }

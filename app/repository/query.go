@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/Masterminds/squirrel"
+	"github.com/google/uuid"
 
 	"accounts/domain"
 	"accounts/util"
@@ -75,19 +76,23 @@ func buildAccountSearchQuery(f *Filter) (string, []interface{}, error) {
 	return q.ToSql()
 }
 
-func buildAccountUpdateQuery(a domain.AccountUpdate, cityID, countryID int32) (string, []interface{}, error) {
+func buildAccountUpdateQuery(a domain.AccountUpdate, cityID, countryID uuid.UUID) (string, []interface{}, error) {
 	setMap := make(map[string]interface{})
-	setMap[AccountCityID] = cityID
-	setMap[AccountCountryID] = countryID
+	if cityID != uuid.Nil {
+		setMap[shortName(AccountCityID)] = cityID
+	}
+	if countryID != uuid.Nil {
+		setMap[shortName(AccountCountryID)] = countryID
+	}
 
 	if a.Email != nil {
-		setMap[AccountEmail] = a.Email
+		setMap[shortName(AccountEmail)] = a.Email
 	}
 	if a.Birth != nil {
-		setMap[AccountBirth] = util.TimestampToDatetime((*int64)(a.Birth))
+		setMap[shortName(AccountBirth)] = util.TimestampToDatetime((*int64)(a.Birth))
 	}
 	if a.Status != nil {
-		setMap[AccountStatus] = util.TimestampToDatetime((*int64)(a.Birth))
+		setMap[shortName(AccountStatus)] = util.TimestampToDatetime((*int64)(a.Birth))
 	}
 
 	return squirrel.Update(TableAccount).
@@ -99,10 +104,10 @@ func buildAccountUpdateQuery(a domain.AccountUpdate, cityID, countryID int32) (s
 
 func buildAccountInsertQuery(a domain.AccountModel) (string, []interface{}, error) {
 	return squirrel.Insert(TableAccount).
-		Columns(AccountID, AccountStatus, AccountEmail,
-			AccountSex, AccountBirth, AccountFirstname,
-			AccountSurname, AccountPhone, AccountCountryID,
-			AccountCityID, AccountJoined, AccountPremStart, AccountPremEnd).
+		Columns(shortName(AccountID), shortName(AccountStatus), shortName(AccountEmail),
+			shortName(AccountSex), shortName(AccountBirth), shortName(AccountFirstname),
+			shortName(AccountSurname), shortName(AccountPhone), shortName(AccountCountryID),
+			shortName(AccountCityID), shortName(AccountJoined), shortName(AccountPremStart), shortName(AccountPremEnd)).
 		Values(a.ID, a.Status, a.Email, a.Sex, a.Birth, a.Name, a.Surname,
 			a.Phone, a.CountryID, a.CityID, a.Joined, a.PremiumStart, a.PremiumEnd).
 		Suffix(returning(AccountID)).
@@ -110,24 +115,40 @@ func buildAccountInsertQuery(a domain.AccountModel) (string, []interface{}, erro
 		ToSql()
 }
 
-func buildCityInsertQuery(c domain.CityModel) (string, []interface{}, error) {
-	return squirrel.Insert(TableCity).
-		Columns(CityName).
-		Values(c.Name).
+func buildCityInsertQuery(c domain.CityModel) (sql string, values []interface{}, err error) {
+	insertCity := squirrel.Insert(TableCity).
+		Columns(shortName(CityID), shortName(CityName)).
+		Values(c.ID, c.Name).
 		Suffix(onConflictDoNothing(CityName)).
-		Suffix(returning(CityID)).
-		PlaceholderFormat(squirrel.Dollar).
-		ToSql()
+		Suffix(returning(shortName(CityID)))
+
+	sql, values, err = cte("inserted", insertCity)
+	if err != nil {
+		return
+	}
+
+	return union(
+		squirrel.Select("inserted.id").From("inserted").Prefix(sql, values...),
+		squirrel.Select(CityID).From(TableCity).Where(squirrel.Eq{CityName: c.Name}),
+	)
 }
 
-func buildCountryInsertQuery(c domain.CountryModel) (string, []interface{}, error) {
-	return squirrel.Insert(TableCountry).
-		Columns(CountryName).
-		Values(c.Name).
+func buildCountryInsertQuery(c domain.CountryModel) (sql string, values []interface{}, err error) {
+	insertCountry := squirrel.Insert(TableCountry).
+		Columns(shortName(CountryID), shortName(CountryName)).
+		Values(c.ID, c.Name).
 		Suffix(onConflictDoNothing(CountryName)).
-		Suffix(returning(CountryID)).
-		PlaceholderFormat(squirrel.Dollar).
-		ToSql()
+		Suffix(returning(shortName(CountryID)))
+
+	sql, values, err = cte("inserted", insertCountry)
+	if err != nil {
+		return
+	}
+
+	return union(
+		squirrel.Select("inserted.id").From("inserted").Prefix(sql, values...),
+		squirrel.Select(CountryID).From(TableCountry).Where(squirrel.Eq{CountryName: c.Name}),
+	)
 }
 
 func join(table, left, right string) string {
@@ -139,5 +160,44 @@ func returning(columns ...string) string {
 }
 
 func onConflictDoNothing(column string) string {
-	return fmt.Sprintf("ON CONFLICT(%s) DO NOTHING", column)
+	return fmt.Sprintf("ON CONFLICT(%s) DO NOTHING", shortName(column))
+}
+
+func shortName(column string) string {
+	lst := strings.Split(column, ".")
+	if len(lst) != 2 {
+		return column
+	}
+
+	return lst[1]
+}
+
+func union(l, r squirrel.SelectBuilder) (string, []interface{}, error) {
+	lSQL, values, err := l.ToSql()
+	if err != nil {
+		return "", nil, err
+	}
+
+	rSQL, rValues, err := r.ToSql()
+	if err != nil {
+		return "", nil, err
+	}
+
+	values = append(values, rValues...)
+	sql, err := squirrel.Dollar.ReplacePlaceholders(fmt.Sprintf(`%s UNION %s`, lSQL, rSQL))
+	if err != nil {
+		return "", nil, err
+	}
+
+	return sql, values, nil
+}
+
+func cte(name string, q squirrel.Sqlizer) (sql string, values []interface{}, err error) {
+	sql, values, err = q.ToSql()
+	if err != nil {
+		return
+	}
+
+	sql = fmt.Sprintf("WITH %s AS (%s)", name, sql)
+	return
 }

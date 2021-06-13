@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 
 	"accounts/util"
@@ -132,10 +133,14 @@ func Test_AccountInputToModels_Success(t *testing.T) {
 			continue
 		}
 
-		assert.Equal(t, testcase.AccountModel, *testcase.Input.AccountModel(nil, nil))
+		assert.Equal(t, testcase.AccountModel, *testcase.Input.AccountModel(uuid.Nil, uuid.Nil))
 		assert.Equal(t, testcase.InterestModels, testcase.Input.InterestModels())
 		assert.Equal(t, testcase.LikeModels, testcase.Input.LikeModels())
-		assert.Equal(t, testcase.CityModel, testcase.Input.CityModel())
-		assert.Equal(t, testcase.CountryModel, testcase.Input.CountryModel())
+		if testcase.CityModel != nil {
+			assert.Equal(t, testcase.CityModel.Name, testcase.Input.CityModel().Name)
+		}
+		if testcase.CountryModel != nil {
+			assert.Equal(t, testcase.CountryModel.Name, testcase.Input.CountryModel().Name)
+		}
 	}
 }

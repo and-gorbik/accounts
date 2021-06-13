@@ -106,7 +106,7 @@ func (r *Repository) AddAccount(ctx context.Context, a domain.AccountInput) erro
 		return err
 	}
 
-	if err = r.insertAccount(ctx, a.AccountModel(&cityID, &countryID), tx); err != nil {
+	if err = r.insertAccount(ctx, a.AccountModel(cityID, countryID), tx); err != nil {
 		return err
 	}
 
@@ -207,7 +207,7 @@ func (r *Repository) tryInsertLikes(ctx context.Context, likes []domain.LikeMode
 		_, err = r.conn.CopyFrom(
 			ctx,
 			pgx.Identifier{TableLike},
-			[]string{LikesLikerID, LikesLikeeID, LikesTimestamp},
+			[]string{shortName(LikesLikerID), shortName(LikesLikeeID), shortName(LikesTimestamp)},
 			pgx.CopyFromSlice(len(likes), func(i int) ([]interface{}, error) {
 				return []interface{}{likes[i].LikerID, likes[i].LikeeID, likes[i].Timestamp}, nil
 			}),
@@ -219,7 +219,7 @@ func (r *Repository) tryInsertLikes(ctx context.Context, likes []domain.LikeMode
 	_, err = tx.CopyFrom(
 		ctx,
 		pgx.Identifier{TableLike},
-		[]string{LikesLikerID, LikesLikeeID, LikesTimestamp},
+		[]string{shortName(LikesLikerID), shortName(LikesLikeeID), shortName(LikesTimestamp)},
 		pgx.CopyFromSlice(len(likes), func(i int) ([]interface{}, error) {
 			return []interface{}{likes[i].LikerID, likes[i].LikeeID, likes[i].Timestamp}, nil
 		}),
@@ -237,7 +237,7 @@ func (r *Repository) tryInsertInterests(ctx context.Context, interests []domain.
 	_, err = tx.CopyFrom(
 		ctx,
 		pgx.Identifier{TableInterest},
-		[]string{InterestAccountID, InterestName},
+		[]string{shortName(InterestAccountID), shortName(InterestName)},
 		pgx.CopyFromSlice(len(interests), func(i int) ([]interface{}, error) {
 			return []interface{}{interests[i].AccountID, interests[i].Name}, nil
 		}),

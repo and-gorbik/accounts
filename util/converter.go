@@ -28,5 +28,9 @@ func PtrInt32(val int32) *int32 {
 }
 
 func PtrUUID(val uuid.UUID) *uuid.UUID {
+	if val == uuid.Nil {
+		return nil
+	}
+
 	return &val
 }
