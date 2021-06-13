@@ -4,6 +4,8 @@ import (
 	"errors"
 
 	"accounts/util"
+
+	"github.com/google/uuid"
 )
 
 var (
@@ -66,7 +68,7 @@ func (a *AccountInput) Validate() error {
 	)
 }
 
-func (a *AccountInput) AccountModel(cityID, countryID *int32) *AccountModel {
+func (a *AccountInput) AccountModel(cityID, countryID *uuid.UUID) *AccountModel {
 	if !a.validated {
 		return nil
 	}
@@ -200,7 +202,7 @@ func (a *AccountUpdate) Validate() error {
 	return checkValidators(&a.ID, a.Email, a.Birth, a.City, a.Country, a.Status)
 }
 
-func (a *AccountUpdate) AccountModel(cityID, countryID *int32) *AccountModel {
+func (a *AccountUpdate) AccountModel(cityID, countryID *uuid.UUID) *AccountModel {
 	if !a.validated {
 		return nil
 	}

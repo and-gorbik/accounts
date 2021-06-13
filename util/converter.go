@@ -2,6 +2,8 @@ package util
 
 import (
 	"time"
+
+	"github.com/google/uuid"
 )
 
 func TimestampToDatetime(ts *int64) *time.Time {
@@ -22,5 +24,9 @@ func PtrInt64(val int64) *int64 {
 }
 
 func PtrInt32(val int32) *int32 {
+	return &val
+}
+
+func PtrUUID(val uuid.UUID) *uuid.UUID {
 	return &val
 }

@@ -1,10 +1,10 @@
 CREATE TABLE IF NOT EXISTS city (
-    id      int not null,
+    id      uuid not null,
     name    varchar(50) not null
 );
 
 CREATE TABLE IF NOT EXISTS country (
-    id      int not null,
+    id      uuid not null,
     name    varchar(50) not null
 );
 
@@ -29,8 +29,8 @@ CREATE TABLE IF NOT EXISTS account (
     name        varchar(50) default null,
     surname     varchar(50) default null,
     phone       varchar(16) default null,
-    country_id  int default null,
-    city_id     int default null,
+    country_id  uuid default null,
+    city_id     uuid default null,
     prem_start  timestamp default null,
     prem_end    timestamp default null
 );

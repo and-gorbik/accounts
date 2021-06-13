@@ -154,7 +154,7 @@ func (field *FieldPremium) Validate() error {
 		return nil
 	}
 
-	return util.ValidateTimestamp(int64(*field), &minPremiumStart, &minPremiumEnd)
+	return util.ValidateTimestamp(int64(*field), &minPremium, nil)
 }
 
 type FieldTimestamp int64

@@ -2,6 +2,8 @@ package domain
 
 import (
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type AccountModel struct {
@@ -15,8 +17,8 @@ type AccountModel struct {
 	Name         *string    `db:"name"`
 	Surname      *string    `db:"surname"`
 	Phone        *string    `db:"phone"`
-	CountryID    *int32     `db:"country_id"`
-	CityID       *int32     `db:"city_id"`
+	CountryID    *uuid.UUID `db:"country_id"`
+	CityID       *uuid.UUID `db:"city_id"`
 	PremiumStart *time.Time `db:"prem_start"`
 	PremiumEnd   *time.Time `db:"prem_end"`
 }
@@ -33,11 +35,11 @@ type InterestModel struct {
 }
 
 type CityModel struct {
-	ID   int32  `db:"id"`
-	Name string `db:"name"`
+	ID   uuid.UUID `db:"id"`
+	Name string    `db:"name"`
 }
 
 type CountryModel struct {
-	ID   int32  `db:"id"`
-	Name string `db:"name"`
+	ID   uuid.UUID `db:"id"`
+	Name string    `db:"name"`
 }
