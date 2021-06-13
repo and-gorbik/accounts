@@ -52,6 +52,10 @@ func (s *AccountService) AddAccount(ctx context.Context, body []byte) error {
 		return BusinessError{err}
 	}
 
+	if err := account.Validate(); err != nil {
+		return BusinessError{err}
+	}
+
 	if err := s.repo.AddAccount(ctx, account); err != nil {
 		return BusinessError{err}
 	}
@@ -62,6 +66,10 @@ func (s *AccountService) AddAccount(ctx context.Context, body []byte) error {
 func (s *AccountService) UpdateAccount(ctx context.Context, body []byte) error {
 	var account domain.AccountUpdate
 	if err := jsoniter.Unmarshal(body, &account); err != nil {
+		return BusinessError{err}
+	}
+
+	if err := account.Validate(); err != nil {
 		return BusinessError{err}
 	}
 
@@ -78,7 +86,15 @@ func (s *AccountService) AddLikes(ctx context.Context, body []byte) error {
 		return BusinessError{err}
 	}
 
-	if err := s.repo.AddLikes(ctx, &domain.LikesInput{Likes: likes}); err != nil {
+	input := &domain.LikesInput{
+		Likes: likes,
+	}
+
+	if err := input.Validate(); err != nil {
+		return BusinessError{err}
+	}
+
+	if err := s.repo.AddLikes(ctx, input); err != nil {
 		return BusinessError{err}
 	}
 
